@@ -1,8 +1,8 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styled from 'styled-components'
-import { ONG, ONGS } from '@/types/ong'
+import { apiClient, ONG } from '@/lib/api-client'
 
 const Container = styled.div`
   min-height: 100vh;
@@ -84,7 +84,7 @@ const ONGGrid = styled.div`
   margin: 0 auto;
 `
 
-const ONGCard = styled(motion.div)<{ color: string }>`
+const ONGCard = styled(motion.div)<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   background: rgba(0, 0, 0, 0.8);
   border: 3px solid ${props => 
     props.color === 'cyan' ? '#00ffff' : 
@@ -110,7 +110,7 @@ const ONGCard = styled(motion.div)<{ color: string }>`
   }
 `
 
-const ONGIcon = styled.div<{ color: string }>`
+const ONGIcon = styled.div<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   font-size: 48px;
   text-align: center;
   margin-bottom: 20px;
@@ -122,7 +122,7 @@ const ONGIcon = styled.div<{ color: string }>`
     '#ff8000'});
 `
 
-const ONGName = styled.h3<{ color: string }>`
+const ONGName = styled.h3<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   color: ${props => 
     props.color === 'cyan' ? '#00ffff' : 
     props.color === 'pink' ? '#ff00ff' : 
@@ -144,7 +144,7 @@ const ONGDescription = styled.p`
   text-align: center;
 `
 
-const ONGMission = styled.p<{ color: string }>`
+const ONGMission = styled.p<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   color: ${props => 
     props.color === 'cyan' ? '#00ffff' : 
     props.color === 'pink' ? '#ff00ff' : 
@@ -157,7 +157,7 @@ const ONGMission = styled.p<{ color: string }>`
   opacity: 0.8;
 `
 
-const SelectButton = styled(motion.div)<{ color: string }>`
+const SelectButton = styled(motion.div)<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   position: absolute;
   bottom: -50px;
   left: 50%;
@@ -189,18 +189,104 @@ const NoResults = styled.div`
 
 interface Props {
   onSelectONG: (ong: ONG) => void
+  onShowGovernance: () => void
 }
 
-export default function ONGSelector({ onSelectONG }: Props) {
+export default function ONGSelector({ onSelectONG, onShowGovernance }: Props) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [ongs, setOngs] = useState<ONG[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchONGs = async () => {
+      try {
+        setLoading(true)
+        const approvedONGs = await apiClient.getApprovedONGs()
+        
+        // Add color assignment for approved ONGs from database
+        const ongsWithColors = approvedONGs.map((ong, index) => ({
+          ...ong,
+          color: getColorForIndex(index)
+        }))
+        
+        setOngs(ongsWithColors)
+      } catch (err) {
+        setError('Error al cargar las ONGs disponibles')
+        console.error('Error fetching ONGs:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchONGs()
+  }, [])
+
+  // Assign colors cyclically for visual variety
+  const getColorForIndex = (index: number): 'cyan' | 'pink' | 'green' | 'purple' | 'orange' => {
+    const colors: ('cyan' | 'pink' | 'green' | 'purple' | 'orange')[] = ['cyan', 'pink', 'green', 'purple', 'orange']
+    return colors[index % colors.length]
+  }
 
   const filteredONGs = useMemo(() => {
-    return ONGS.filter(ong =>
+    return ongs.filter(ong =>
       ong.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ong.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ong.mission.toLowerCase().includes(searchTerm.toLowerCase())
     )
-  }, [searchTerm])
+  }, [ongs, searchTerm])
+
+  if (loading) {
+    return (
+      <Container>
+        <Header>
+          <Title>🎯 CARGANDO ONGs 🎯</Title>
+          <Subtitle>
+            Obteniendo organizaciones disponibles...
+          </Subtitle>
+        </Header>
+        <div style={{ textAlign: 'center', marginTop: '50px' }}>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            style={{ fontSize: '48px', color: '#00ffff' }}
+          >
+            ⚡
+          </motion.div>
+        </div>
+      </Container>
+    )
+  }
+
+  if (error) {
+    return (
+      <Container>
+        <Header>
+          <Title>🎯 ERROR 🎯</Title>
+          <Subtitle style={{ color: '#ff6b6b' }}>
+            {error}
+          </Subtitle>
+        </Header>
+        <div style={{ textAlign: 'center', marginTop: '50px' }}>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '15px 30px',
+              background: 'linear-gradient(45deg, #ff6b6b, #ff8e53)',
+              border: 'none',
+              borderRadius: '15px',
+              color: 'white',
+              fontFamily: 'Orbitron, monospace',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Reintentar
+          </button>
+        </div>
+      </Container>
+    )
+  }
 
   return (
     <Container>
@@ -222,16 +308,49 @@ export default function ONGSelector({ onSelectONG }: Props) {
       </SearchContainer>
 
       <AnimatePresence>
-        {filteredONGs.length > 0 ? (
-          <ONGGrid>
-            {filteredONGs.map((ong, index) => (
+        <ONGGrid>
+          {/* Card de Gobernanza - Siempre primera */}
+          <ONGCard
+            color="purple"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            whileHover={{ scale: 1.05, y: -10 }}
+            onClick={onShowGovernance}
+            style={{
+              background: 'linear-gradient(135deg, rgba(128, 0, 255, 0.2) 0%, rgba(255, 0, 255, 0.1) 50%, rgba(128, 0, 255, 0.2) 100%)',
+              borderColor: '#8000ff'
+            }}
+          >
+            <ONGIcon color="purple">🏛️</ONGIcon>
+            <ONGName color="purple">Gobernanza Democrática</ONGName>
+            <ONGDescription>
+              Participa en la gestión democrática de las ONGs. Vota propuestas y propón nuevas organizaciones.
+            </ONGDescription>
+            <ONGMission color="purple">
+              "El poder de decidir está en tus manos"
+            </ONGMission>
+            
+            <SelectButton
+              color="purple"
+              initial={{ y: 50, opacity: 0 }}
+              whileHover={{ y: -40, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              🗳️ Participar 🗳️
+            </SelectButton>
+          </ONGCard>
+
+          {/* ONGs regulares */}
+          {filteredONGs.length > 0 ? (
+            filteredONGs.map((ong, index) => (
               <ONGCard
                 key={ong.id}
                 color={ong.color}
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -50 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.5, delay: (index + 1) * 0.1 }}
                 whileHover={{ scale: 1.05, y: -10 }}
                 onClick={() => onSelectONG(ong)}
               >
@@ -249,19 +368,19 @@ export default function ONGSelector({ onSelectONG }: Props) {
                   ✨ Seleccionar ✨
                 </SelectButton>
               </ONGCard>
-            ))}
-          </ONGGrid>
-        ) : (
-          <NoResults>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
+            ))
+          ) : searchTerm ? (
+            <div style={{ 
+              gridColumn: '1 / -1', 
+              textAlign: 'center', 
+              color: '#666', 
+              fontSize: '18px',
+              marginTop: '40px' 
+            }}>
               🔍 No se encontraron ONGs que coincidan con "{searchTerm}"
-            </motion.div>
-          </NoResults>
-        )}
+            </div>
+          ) : null}
+        </ONGGrid>
       </AnimatePresence>
     </Container>
   )

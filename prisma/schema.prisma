@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== TABLAS MVP MÍNIMAS =====
+
+// 1. Usuarios (✅ Ya está perfecto)
+model User {
+  id              String    @id // Privy user ID
+  email           String?   @unique
+  participations  Int       @default(0)
+  
+  // 💰 FINANCIAL TOTALS (✅ Perfecto)
+  totalAmountPlayed String  @default("0") @map("total_amount_played")
+  totalWinnings     String  @default("0") @map("total_winnings")
+  totalContributed  String  @default("0") @map("total_contributed")
+  
+  // 🎮 GAMING STATS (Agregar)
+  totalGamesWon     Int     @default(0) @map("total_games_won")
+  longestStreak     Int     @default(0) @map("longest_streak")
+  favoriteOngId     String? @map("favorite_ong_id") // ONG más elegida
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Relaciones
+  gameSessions    GameSession[]
+  proposals       ONGProposal[]
+  votes           Vote[]
+  
+  @@map("users")
+}
+
+// 2. ONGs aprobadas (✅ Mejorar categorización)
+model ApprovedONG {
+  id          String    @id // ← CAMBIAR: usar IDs fijos como "unicef"
+  name        String
+  description String
+  mission     String?
+  website     String?
+  color       String    @default("#00ff88")
+  icon        String    @default("🏥")
+  
+  // 🏷️ CATEGORIZACIÓN (Agregar)
+  category    ONGCategory @default(GENERAL)
+  tags        String[]    @default([]) // ["niños", "salud", "emergencia"]
+  
+  // 🚀 BLOCKCHAIN FIELDS (✅ Ya está bien)
+  walletAddress     String?   @map("wallet_address")
+  walletVerified    Boolean   @default(false) @map("wallet_verified")
+  networkSupported  String    @default("mantle") @map("network_supported")
+  
+  // 📊 MÉTRICAS (✅ Ya está bien)
+  totalGamesSupporting Int @default(0) @map("total_games_supporting")
+  totalFundsReceived   String @default("0") @map("total_funds_received")
+  
+  // 🎯 MÉTRICAS ADICIONALES (Agregar)
+  averageContribution  String @default("0") @map("average_contribution")
+  popularityRank      Int?   @map("popularity_rank")
+  isActive           Boolean @default(true) @map("is_active")
+  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  gameSessions GameSession[]
+  
+  @@map("approved_ongs")
+}
+
+// 3. Propuestas (✅ Agregar categoría)
+model ONGProposal {
+  id          String          @id @default(cuid())
+  name        String
+  description String
+  mission     String?
+  website     String?
+  color       String          @default("#00ff88")
+  icon        String          @default("🏥")
+  
+  // 🏷️ CATEGORIZACIÓN (Agregar)
+  category    ONGCategory     @default(GENERAL)
+  
+  // 🚀 WALLET (✅ Ya está bien)
+  proposedWalletAddress String  @map("proposed_wallet_address")
+  walletOwnershipProof  String? @map("wallet_ownership_proof")
+  
+  proposedById String         @map("proposed_by_id")
+  proposedBy   User           @relation(fields: [proposedById], references: [id])
+  
+  status      ProposalStatus  @default(VOTING)
+  votesFor    Int            @default(0) @map("votes_for")
+  votesAgainst Int           @default(0) @map("votes_against")
+  
+  // 📅 TIMING (Agregar deadlines)
+  votingEndsAt DateTime?      @map("voting_ends_at")
+  
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  
+  votes       Vote[]
+  
+  @@map("ong_proposals")
+}
+
+// 4. Game Sessions (✅ Agregar engagement metrics)
+model GameSession {
+  id              String      @id @default(cuid())
+  userId          String      @map("user_id")
+  selectedOngId   String      @map("selected_ong_id")
+  
+  // GAME DATA (✅ Perfecto)
+  selectedNumbers String      @map("selected_numbers")
+  winningNumbers  String?     @map("winning_numbers")
+  
+  // 💰 FINANCIAL DATA (✅ Perfecto)
+  amountPlayed    String      @map("amount_played")
+  contributionPercentage Float @default(15.0) @map("contribution_percentage")
+  contributionAmount String   @map("contribution_amount")
+  
+  // GAME RESULTS (✅ Perfecto)
+  isWinner        Boolean     @default(false) @map("is_winner")
+  prizeAmount     String?     @map("prize_amount")
+  
+  // BLOCKCHAIN TRACKING (✅ Perfecto)
+  gameTransactionHash String? @map("game_tx_hash")
+  prizeTransactionHash String? @map("prize_tx_hash")
+  blockNumber     BigInt?     @map("block_number")
+  
+  // 📱 SOCIAL ENGAGEMENT (Mejorar)
+  sharedOnTwitter Boolean     @default(false) @map("shared_on_twitter")
+  twitterPostId   String?     @map("twitter_post_id")
+  twitterEngagement Int       @default(0) @map("twitter_engagement") // ← AGREGAR
+  influencedUsers   Int       @default(0) @map("influenced_users")   // ← AGREGAR
+  
+  playedAt        DateTime    @default(now()) @map("played_at")
+  confirmedAt     DateTime?   @map("confirmed_at")
+  
+  // Relaciones
+  user            User        @relation(fields: [userId], references: [id])
+  selectedOng     ApprovedONG @relation(fields: [selectedOngId], references: [id])
+  
+  // 🚀 INDEXES PARA PERFORMANCE
+  @@index([userId, playedAt])
+  @@index([selectedOngId, playedAt])
+  @@index([playedAt])
+  @@index([isWinner])
+  @@map("game_sessions")
+}
+
+// 5. Voting (✅ Ya está perfecto)
+model Vote {
+  id         String      @id @default(cuid())
+  userId     String      @map("user_id")
+  proposalId String      @map("proposal_id")
+  vote       Boolean
+  createdAt  DateTime    @default(now()) @map("created_at")
+  
+  user       User        @relation(fields: [userId], references: [id])
+  proposal   ONGProposal @relation(fields: [proposalId], references: [id])
+  
+  @@unique([userId, proposalId])
+  @@map("votes")
+}
+
+// 🏷️ ENUMS (Agregar)
+enum ProposalStatus {
+  VOTING
+  APPROVED
+  REJECTED
+}
+
+enum ONGCategory {
+  GENERAL
+  HEALTH        // Salud
+  EDUCATION     // Educación
+  ENVIRONMENT   // Medio ambiente
+  CHILDREN      // Niños
+  EMERGENCY     // Emergencia
+  POVERTY       // Pobreza
+  HUMAN_RIGHTS  // Derechos humanos
+  ANIMALS       // Animales
+}

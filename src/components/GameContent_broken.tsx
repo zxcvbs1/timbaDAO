@@ -1,6 +1,5 @@
-// filepath: /workspaces/lottery-neon-app/src/components/GameContent.tsx
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import NeonDisplay from '@/components/lottery/NeonDisplay'
 import NumberInput from '@/components/lottery/NumberInput'
 import PlayButton from '@/components/lottery/PlayButton'
@@ -25,7 +24,6 @@ function GameContentInner() {
   const [showGovernance, setShowGovernance] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
-  const userCreationAttempted = useRef(false)
   
   const audioRef = useAudio()
 
@@ -35,9 +33,7 @@ function GameContentInner() {
   // 👤 Crear o obtener usuario cuando se autentique
   useEffect(() => {
     const createOrGetUser = async () => {
-      // Evitar múltiples llamadas con un ref
-      if (authenticated && user?.wallet?.address && !currentUser && !isCreatingUser && !userCreationAttempted.current) {
-        userCreationAttempted.current = true
+      if (authenticated && user?.wallet?.address && !currentUser && !isCreatingUser) {
         setIsCreatingUser(true)
         
         try {
@@ -52,12 +48,9 @@ function GameContentInner() {
             console.log('✅ Usuario autenticado:', result.user.id, result.user.isNew ? '(nuevo)' : '(existente)')
           } else {
             setError(result.error || 'Error al crear usuario')
-            userCreationAttempted.current = false // Permitir retry en caso de error
           }
         } catch (err) {
           setError('Error de conexión al autenticar usuario')
-          console.error('Error creating user:', err)
-          userCreationAttempted.current = false // Permitir retry en caso de error
         } finally {
           setIsCreatingUser(false)
         }
@@ -65,7 +58,7 @@ function GameContentInner() {
     }
 
     createOrGetUser()
-  }, [authenticated, user?.wallet?.address]) // Solo depender de authenticated y wallet address
+  }, [authenticated, user?.wallet?.address, currentUser, isCreatingUser])
 
   // 🧹 Limpiar usuario cuando se desconecte
   useEffect(() => {
@@ -74,7 +67,6 @@ function GameContentInner() {
       setGameStarted(false)
       setSelectedONG(null)
       setError(null)
-      userCreationAttempted.current = false // Reset el flag cuando se desconecte
     }
   }, [authenticated])
 
@@ -170,6 +162,72 @@ function GameContentInner() {
         fontFamily: 'Orbitron, monospace'
       }}>
         👤 Configurando tu cuenta... 👤
+      </div>
+    )
+  }
+
+  // Obtener la dirección del usuario autenticado
+  const userAddress = user?.wallet?.address || user?.id || 'unknown'
+        fontFamily: 'Orbitron, monospace'
+      }}>
+        👤 Configurando tu cuenta... 👤
+      </div>
+    )
+  }
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #1a0033 0%, #330066 50%, #1a0033 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#00ffff',
+        fontSize: '24px',
+        fontFamily: 'Orbitron, monospace',
+        padding: '20px',
+        textAlign: 'center'
+      }}>
+        <BackgroundEffect />
+        <div style={{ marginBottom: '40px' }}>
+          <h1 style={{ 
+            fontSize: '48px', 
+            marginBottom: '20px',
+            background: 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00)',
+            backgroundClip: 'text',
+            color: 'transparent',
+            textShadow: '0 0 30px rgba(255, 0, 255, 0.5)'
+          }}>
+            🎰 SUPER LOTERÍA NEÓN 🎰
+          </h1>
+          <p style={{ fontSize: '18px', marginBottom: '30px' }}>
+            La lotería más solidaria del mundo
+          </p>
+          <p style={{ fontSize: '16px', marginBottom: '40px', color: '#ffff00' }}>
+            🔐 Conéctate para jugar y participar en la governance
+          </p>
+        </div>
+        
+        <button
+          onClick={login}
+          style={{
+            padding: '20px 40px',
+            background: 'linear-gradient(45deg, #ff00ff, #00ffff)',
+            border: 'none',
+            borderRadius: '15px',
+            color: '#000',
+            fontFamily: 'Orbitron, monospace',
+            fontWeight: 'bold',
+            fontSize: '18px',
+            cursor: 'pointer',
+            transform: 'scale(1)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          🚀 CONECTAR WALLET
+        </button>
       </div>
     )
   }
@@ -272,6 +330,7 @@ function GameContentInner() {
     setHasPlayed(false)
     setBetResult(null)
     setError(null)
+    setShowGovernance(false)
   }
 
   const handleShowGovernance = () => {
@@ -282,12 +341,14 @@ function GameContentInner() {
     setShowGovernance(false)
   }
 
+  const isWinner = selectedNumbers === winningNumbers && hasPlayed
+
   // Mostrar panel de gobernanza
   if (showGovernance) {
     return (
       <GovernancePanel 
-        userAddress={userAddress}
         onBack={handleHideGovernance}
+        userAddress={userAddress}
       />
     )
   }
@@ -301,50 +362,33 @@ function GameContentInner() {
   if (!selectedONG) {
     return (
       <>
-        <BackgroundEffect />
-        <div className="min-h-screen flex flex-col items-center justify-center px-4">
-          <button
-            onClick={handleBackToStart}
-            className="absolute top-4 left-4 px-4 py-2 bg-gray-800 text-cyan-400 border border-cyan-400 rounded-lg hover:bg-cyan-400 hover:text-black transition-all duration-300"
-          >
-            ← Volver al inicio
-          </button>
-          
-          {/* Botón de logout */}
-          <button
-            onClick={logout}
-            className="absolute top-4 right-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300"
-          >
-            🔐 Desconectar
-          </button>
-
-          <ONGSelector onSelectONG={handleSelectONG} onShowGovernance={handleShowGovernance} />
-        </div>
+        <button
+          onClick={handleBackToStart}
+          className="fixed top-4 left-4 z-50 px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-800 text-white rounded-lg font-bold hover:from-gray-700 hover:to-gray-900 transition-all duration-300 hover:scale-105"
+        >
+          ← Volver al inicio
+        </button>
+        
+        <ONGSelector onSelectONG={handleSelectONG} onShowGovernance={handleShowGovernance} />
       </>
     )
   }
 
+  // Pantalla principal del juego
   return (
     <>
       <BackgroundEffect />
-      <div className="min-h-screen flex flex-col items-center px-4 py-8">
+      
+      <main className="min-h-screen relative">
         <button
           onClick={handleBackToONGSelection}
-          className="absolute top-4 left-4 px-4 py-2 bg-gray-800 text-cyan-400 border border-cyan-400 rounded-lg hover:bg-cyan-400 hover:text-black transition-all duration-300"
+          className="fixed top-4 left-4 z-50 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-all duration-300 hover:scale-105"
         >
           ← Cambiar ONG
         </button>
-
-        {/* Botón de logout */}
-        <button
-          onClick={logout}
-          className="absolute top-4 right-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300"
-        >
-          🔐 Desconectar
-        </button>
-
-        <div className="text-center mb-8">
-          <div className="mb-4">
+        
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
+          <div className="text-center mb-8">
             <div className="text-4xl mb-2">{selectedONG.icon}</div>
             <h2 className="text-2xl font-bold text-cyan-400 mb-2">
               Jugando para: {selectedONG.name}
@@ -352,30 +396,26 @@ function GameContentInner() {
             <p className="text-sm text-gray-300 max-w-md mb-2">
               {selectedONG.mission}
             </p>
-            <p className="text-xs text-gray-400">
-              Usuario: {userAddress.slice(0, 8)}...{userAddress.slice(-6)}
-            </p>
+            <div className="text-xs text-yellow-400 font-bold">
+              💝 15% de cada jugada va directo a esta ONG
+            </div>
           </div>
-        </div>
 
-        <div className="w-full max-w-4xl">
           <h1 className="text-6xl font-bold text-center mb-12 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
             🎰 SUPER LOTERÍA 🎰
           </h1>
-          
+
           <div className="mb-8">
-            <NeonDisplay 
-              numbers={selectedNumbers.split('')}
-              color="cyan"
-            />
-            {error && (
-              <p className="text-center text-red-400 mt-2 text-sm">
-                ❌ {error}
+            <h2 className="text-2xl text-cyan-400 text-center mb-4">Tus números:</h2>
+            <NeonDisplay numbers={selectedNumbers.split('')} color="cyan" />
+            {selectedNumbers.length > 0 && selectedNumbers.length < 4 && (
+              <p className="text-center text-yellow-400 mt-2 text-sm">
+                Ingresa {4 - selectedNumbers.length} dígito{4 - selectedNumbers.length > 1 ? 's' : ''} más
               </p>
             )}
             {selectedNumbers.length === 4 && (
-              <p className="text-center text-yellow-400 mt-2 text-sm">
-                ✨ ¡Números seleccionados! Haz clic en JUGAR
+              <p className="text-center text-green-400 mt-2 text-sm animate-pulse">
+                ✅ ¡Listo para jugar!
               </p>
             )}
           </div>
@@ -384,42 +424,97 @@ function GameContentInner() {
             <NumberInput 
               value={selectedNumbers}
               onChange={setSelectedNumbers}
-              disabled={isPlaying || hasPlayed}
+              disabled={isPlaying}
             />
           </div>
 
-          <div className="flex flex-col items-center gap-4">
-            <PlayButton
+          <div className="mb-8">
+            <PlayButton 
               onClick={handlePlay}
               disabled={selectedNumbers.length !== 4 || isPlaying}
               isLoading={isPlaying}
             />
-            
             {selectedNumbers.length !== 4 && !isPlaying && (
-              <p className="text-center text-yellow-400 text-sm">
-                Selecciona 4 números para jugar
+              <p className="text-center text-red-400 mt-2 text-sm">
+                Necesitas ingresar exactamente 4 números para jugar
               </p>
             )}
-
-            {hasPlayed && (
-              <div className="text-center">
-                <button
-                  onClick={handleNewGame}
-                  className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 mb-4"
-                >
-                  🎲 Jugar de nuevo
-                </button>
-                <ShareButton 
-                  selectedNumbers={selectedNumbers}
-                  winningNumbers={winningNumbers}
-                  isWinner={selectedNumbers === winningNumbers && hasPlayed}
-                  selectedONG={selectedONG}
-                />
+            
+            {error && (
+              <div className="text-center mt-4 p-4 bg-red-900/30 border border-red-500 rounded-lg">
+                <p className="text-red-400 text-sm">
+                  ❌ {error}
+                </p>
+              </div>
+            )}
+            
+            {betResult && betResult.success && !hasPlayed && (
+              <div className="text-center mt-4 p-4 bg-green-900/30 border border-green-500 rounded-lg">
+                <p className="text-green-400 text-sm">
+                  ✅ Apuesta realizada exitosamente
+                </p>
+                {betResult.betId && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    ID: {betResult.betId}
+                  </p>
+                )}
               </div>
             )}
           </div>
+
+          {winningNumbers && (
+            <div className="mb-8">
+              <h2 className="text-2xl text-pink-400 text-center mb-4">Números ganadores:</h2>
+              <NeonDisplay numbers={winningNumbers.split('')} color="pink" />
+              
+              {isWinner ? (
+                <div className="text-center mt-4">
+                  <p className="text-4xl text-yellow-400 mb-4" style={{ textShadow: '0 0 20px #ffff00' }}>
+                    🎉 ¡GANASTE! 🎉
+                  </p>
+                  <p className="text-lg text-green-400 mb-4">
+                    ¡Tu victoria ayuda a {selectedONG.name}! 🎯
+                  </p>
+                  <div className="space-y-4">
+                    <ShareButton 
+                      selectedNumbers={selectedNumbers}
+                      winningNumbers={winningNumbers}
+                      isWinner={true}
+                      selectedONG={selectedONG}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center mt-4">
+                  <p className="text-xl text-red-400 mb-2">¡Inténtalo de nuevo!</p>
+                  <p className="text-sm text-gray-400 mb-4">
+                    Tu jugada igual ayudó a {selectedONG.name} 💝
+                  </p>
+                  <div className="space-y-4">
+                    <ShareButton 
+                      selectedNumbers={selectedNumbers}
+                      winningNumbers={winningNumbers}
+                      isWinner={false}
+                      selectedONG={selectedONG}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasPlayed && (
+            <div className="mt-4">
+              <button
+                onClick={handleNewGame}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-all duration-300 hover:scale-105"
+              >
+                🎲 Nueva Partida Solidaria
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      </main>
     </>
   )
 }

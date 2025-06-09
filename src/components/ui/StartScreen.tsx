@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import styled from 'styled-components'
+import { usePrivy } from '@privy-io/react-auth'
 
 const Container = styled.div`
   min-height: 100vh;
@@ -87,21 +88,62 @@ const LoadingMessage = styled(motion.div)`
   text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
 `
 
+const UserInfo = styled(motion.div)`
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 15px 25px;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #00ffff;
+  font-size: 14px;
+  
+  .wallet-address {
+    font-family: 'monospace';
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 5px;
+  }
+`
+
 interface Props {
   onStart: () => void
 }
 
 export default function StartScreen({ onStart }: Props) {
   const [isLoading, setIsLoading] = useState(false)
+  const { ready, authenticated, user, login } = usePrivy()
 
-  const handleStart = () => {
+  const handleStart = async () => {
     console.log('START GAME clicked!') // ✅ Debug
+    
+    if (!authenticated) {
+      console.log('User not authenticated, opening login...')
+      login()
+      return
+    }
+
+    console.log('User authenticated:', user?.id)
     setIsLoading(true)
     
     setTimeout(() => {
       console.log('Calling onStart...') // ✅ Debug
       onStart()
     }, 2000)
+  }
+
+  // Show loading if Privy is not ready
+  if (!ready) {
+    return (
+      <Container>
+        <LoadingMessage
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          🔐 Inicializando autenticación...
+        </LoadingMessage>
+      </Container>
+    )
   }
 
   return (

@@ -1,6 +1,6 @@
 // filepath: /workspaces/lottery-neon-app/src/components/GameContent.tsx
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import NeonDisplay from '@/components/lottery/NeonDisplay'
 import NumberInput from '@/components/lottery/NumberInput'
 import PlayButton from '@/components/lottery/PlayButton'
@@ -25,7 +25,6 @@ function GameContentInner() {
   const [showGovernance, setShowGovernance] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
-  const userCreationAttempted = useRef(false)
   
   const audioRef = useAudio()
 
@@ -35,9 +34,7 @@ function GameContentInner() {
   // 👤 Crear o obtener usuario cuando se autentique
   useEffect(() => {
     const createOrGetUser = async () => {
-      // Evitar múltiples llamadas con un ref
-      if (authenticated && user?.wallet?.address && !currentUser && !isCreatingUser && !userCreationAttempted.current) {
-        userCreationAttempted.current = true
+      if (authenticated && user?.wallet?.address && !currentUser && !isCreatingUser) {
         setIsCreatingUser(true)
         
         try {
@@ -52,12 +49,9 @@ function GameContentInner() {
             console.log('✅ Usuario autenticado:', result.user.id, result.user.isNew ? '(nuevo)' : '(existente)')
           } else {
             setError(result.error || 'Error al crear usuario')
-            userCreationAttempted.current = false // Permitir retry en caso de error
           }
         } catch (err) {
           setError('Error de conexión al autenticar usuario')
-          console.error('Error creating user:', err)
-          userCreationAttempted.current = false // Permitir retry en caso de error
         } finally {
           setIsCreatingUser(false)
         }
@@ -65,7 +59,7 @@ function GameContentInner() {
     }
 
     createOrGetUser()
-  }, [authenticated, user?.wallet?.address]) // Solo depender de authenticated y wallet address
+  }, [authenticated, user?.wallet?.address, currentUser, isCreatingUser])
 
   // 🧹 Limpiar usuario cuando se desconecte
   useEffect(() => {
@@ -74,7 +68,6 @@ function GameContentInner() {
       setGameStarted(false)
       setSelectedONG(null)
       setError(null)
-      userCreationAttempted.current = false // Reset el flag cuando se desconecte
     }
   }, [authenticated])
 
@@ -365,8 +358,9 @@ function GameContentInner() {
           
           <div className="mb-8">
             <NeonDisplay 
-              numbers={selectedNumbers.split('')}
-              color="cyan"
+              selectedNumbers={selectedNumbers}
+              winningNumbers={winningNumbers}
+              isPlaying={isPlaying}
             />
             {error && (
               <p className="text-center text-red-400 mt-2 text-sm">
@@ -382,8 +376,8 @@ function GameContentInner() {
 
           <div className="mb-8">
             <NumberInput 
-              value={selectedNumbers}
-              onChange={setSelectedNumbers}
+              selectedNumbers={selectedNumbers}
+              setSelectedNumbers={setSelectedNumbers}
               disabled={isPlaying || hasPlayed}
             />
           </div>
@@ -392,7 +386,7 @@ function GameContentInner() {
             <PlayButton
               onClick={handlePlay}
               disabled={selectedNumbers.length !== 4 || isPlaying}
-              isLoading={isPlaying}
+              isPlaying={isPlaying}
             />
             
             {selectedNumbers.length !== 4 && !isPlaying && (
@@ -412,7 +406,6 @@ function GameContentInner() {
                 <ShareButton 
                   selectedNumbers={selectedNumbers}
                   winningNumbers={winningNumbers}
-                  isWinner={selectedNumbers === winningNumbers && hasPlayed}
                   selectedONG={selectedONG}
                 />
               </div>
