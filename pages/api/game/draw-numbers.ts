@@ -92,7 +92,7 @@ export default async function handler(
     });
 
     // 🎰 EJECUTAR SORTEO EN EL CONTRATO
-    const drawResult = await lotteryContract.drawNumbers();
+    const drawResult = await lotteryContract.drawNumbers(force || false);
 
     // 📊 CALCULAR ESTADÍSTICAS FINALES
     const stats = {

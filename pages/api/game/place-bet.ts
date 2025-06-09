@@ -2,11 +2,9 @@
 // POST /api/game/place-bet
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { lotteryContract } from '../../../src/lib/blockchain';
-import { PrismaClient } from '../../../src/generated/prisma';
+import { MockLotteryContract } from '../../../src/lib/blockchain/mock-lottery';
+import { prisma } from '../../../src/lib/prisma';
 import { validateLotteryNumbers, validateBetAmount } from '../../../src/lib/validations';
-
-const prisma = new PrismaClient();
 
 interface PlaceBetRequest {
   userId: string;
@@ -55,16 +53,19 @@ export default async function handler(
       });
     }
 
+    // Normalize userId to lowercase for database lookup, consistent with user creation
+    const normalizedUserIdForDB = userId.toLowerCase();
+
     // 🔍 VALIDAR USUARIO
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: normalizedUserIdForDB } // Use normalized ID for lookup
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found',
-        error: `User with id ${userId} does not exist`
+        error: `User with id ${userId} does not exist` // Error message still shows original ID from request
       });
     }
 
@@ -110,8 +111,11 @@ export default async function handler(
       betAmount: finalBetAmount
     });
 
-    const result = await lotteryContract.placeBet(
-      userId,
+    console.log('🎭 [MOCK] Using mock lottery contract for development');
+    const mockContract = new MockLotteryContract();
+    
+    const result = await mockContract.placeBet(
+      userId, // Assuming contract handles casing or prefers original checksummed address
       selectedNumbers,
       selectedOngId,
       finalBetAmount
@@ -119,7 +123,7 @@ export default async function handler(
 
     // 📊 ACTUALIZAR PARTICIPACIONES DEL USUARIO
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: normalizedUserIdForDB }, // Use normalized ID for update
       data: {
         participations: { increment: 1 }
       }

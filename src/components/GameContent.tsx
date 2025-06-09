@@ -9,6 +9,8 @@ import ShareButton from '@/components/ui/ShareButton'
 import ONGSelector from '@/components/ong/ONGSelector'
 import StartScreen from '@/components/ui/StartScreen'
 import GovernancePanel from '@/components/governance/GovernancePanel'
+import AdminTestingPanel from '@/components/ui/AdminTestingPanel'
+import TestModeSelection from '@/components/ui/TestModeSelection'
 import { AudioProvider, useAudio } from '@/contexts/AudioContext'
 import { apiClient, ONG, User } from '@/lib/api-client'
 import { usePrivy } from '@privy-io/react-auth'
@@ -25,6 +27,9 @@ function GameContentInner() {
   const [showGovernance, setShowGovernance] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
+  const [isExecutingDraw, setIsExecutingDraw] = useState(false)
+  const [testMode, setTestMode] = useState<'normal' | 'win' | 'lose' | 'specific'>('normal')
+  const [testNumbers, setTestNumbers] = useState('')
   const userCreationAttempted = useRef(false)
   
   const audioRef = useAudio()
@@ -205,7 +210,7 @@ function GameContentInner() {
         userAddress,
         selectedNumbers,
         selectedONG.id,
-        100 // Default bet amount
+        1000000000000000000 // Default bet amount (1 MNT in wei)
       )
 
       if (!result.success) {
@@ -216,20 +221,63 @@ function GameContentInner() {
 
       setBetResult(result)
 
-      // After a delay, execute the draw
+      // 🎯 EJECUTAR SORTEO AUTOMÁTICAMENTE CON MODO DE TESTING
       setTimeout(async () => {
         try {
-          const drawResult = await apiClient.executeDrawNumbers()
+          let winningNumbers: number[] | undefined
+
+          // Determinar números ganadores según el modo de testing
+          if (process.env.NODE_ENV === 'development') {
+            switch (testMode) {
+              case 'win':
+                winningNumbers = selectedNumbers.split('').map(Number)
+                break
+              case 'lose':
+                const playerNumbers = selectedNumbers.split('').map(Number)
+                winningNumbers = playerNumbers.map(num => num === 9 ? 0 : 9) // Números opuestos
+                break
+              case 'specific':
+                if (testNumbers.length === 4) {
+                  winningNumbers = testNumbers.split('').map(Number)
+                }
+                break
+              default:
+                // 'normal' - números aleatorios
+                winningNumbers = undefined
+            }
+          }
+
+          // Ejecutar sorteo con números controlados o aleatorios
+          const requestBody = winningNumbers ? { winningNumbers } : {}
           
-          if (drawResult.success && drawResult.winningNumbers) {
-            setWinningNumbers(drawResult.winningNumbers)
+          const response = await fetch('/api/admin/execute-draw', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+          })
+
+          const drawResult = await response.json()
+          
+          if (drawResult.success && drawResult.result.winningNumbers) {
+            const finalWinningNumbers = drawResult.result.winningNumbers.join('')
+            setWinningNumbers(finalWinningNumbers)
             setIsPlaying(false)
             setHasPlayed(true)
             
-            if (selectedNumbers === drawResult.winningNumbers) {
+            if (selectedNumbers === finalWinningNumbers) {
               audioRef.current?.playWinSound()
             } else {
               audioRef.current?.playLoseSound()
+            }
+
+            // Mostrar resultado del testing si está en modo desarrollo
+            if (process.env.NODE_ENV === 'development' && testMode !== 'normal') {
+              const modeText = testMode === 'win' ? 'VICTORIA FORZADA' : 
+                              testMode === 'lose' ? 'DERROTA FORZADA' : 
+                              'NÚMEROS ESPECÍFICOS'
+              setError(`🎯 ${modeText}: ${finalWinningNumbers}. ${drawResult.result.winners.length} ganador(es)`)
             }
           } else {
             setError(drawResult.error || 'Error al ejecutar el sorteo')
@@ -280,6 +328,45 @@ function GameContentInner() {
 
   const handleHideGovernance = () => {
     setShowGovernance(false)
+  }
+
+  // 🎲 Función para ejecutar sorteo en desarrollo
+  const handleExecuteDraw = async (specificNumbers?: number[]) => {
+    if (process.env.NODE_ENV !== 'development') {
+      setError('Solo disponible en modo desarrollo')
+      return
+    }
+
+    setIsExecutingDraw(true)
+    setError(null)
+
+    try {
+      const requestBody = specificNumbers ? { winningNumbers: specificNumbers } : {}
+      
+      const response = await fetch('/api/admin/execute-draw', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        const winNumbers = data.result.winningNumbers.join('')
+        setError(`✅ Sorteo ejecutado: ${winNumbers}. ${data.result.winners.length} ganador(es)`)
+        // Actualizar números ganadores en pantalla
+        setWinningNumbers(winNumbers)
+      } else {
+        setError(`❌ Error en sorteo: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error executing draw:', error)
+      setError('❌ Error ejecutando sorteo')
+    } finally {
+      setIsExecutingDraw(false)
+    }
   }
 
   // Mostrar panel de gobernanza
@@ -378,7 +465,19 @@ function GameContentInner() {
                 ✨ ¡Números seleccionados! Haz clic en JUGAR
               </p>
             )}
+            <p className="text-center text-cyan-400 mt-2 text-sm">
+              💰 Monto de apuesta: 1 MNT
+            </p>
           </div>
+
+          {/* Selector de modo de testing (solo en desarrollo) */}
+          <TestModeSelection
+            testMode={testMode}
+            testNumbers={testNumbers}
+            selectedNumbers={selectedNumbers}
+            onTestModeChange={setTestMode}
+            onTestNumbersChange={setTestNumbers}
+          />
 
           <div className="mb-8">
             <NumberInput 
@@ -415,6 +514,19 @@ function GameContentInner() {
                   isWinner={selectedNumbers === winningNumbers && hasPlayed}
                   selectedONG={selectedONG}
                 />
+              </div>
+            )}
+
+            {/* 🔧 PANEL DE INFORMACIÓN DE DESARROLLO */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-8 p-4 bg-gray-800 rounded-lg border border-gray-600">
+                <h3 className="text-yellow-400 text-sm font-bold mb-2">ℹ️ INFORMACIÓN DE DESARROLLO</h3>
+                <div className="text-xs text-gray-400 space-y-1">
+                  <p>• El modo de testing se configura ANTES de hacer clic en JUGAR</p>
+                  <p>• El sorteo se ejecuta automáticamente después de apostar</p>
+                  <p>• Los resultados aparecen en el área de mensajes arriba</p>
+                  <p>• Solo visible en modo desarrollo</p>
+                </div>
               </div>
             )}
           </div>

@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 
 const AudioControls = styled.div`
   position: fixed;
-:  bottom: 20px;
+  bottom: 100px; // Removed extra colon
   right: 20px;
   z-index: 100;
   display: flex;

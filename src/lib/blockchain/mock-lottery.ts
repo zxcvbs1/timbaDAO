@@ -21,8 +21,12 @@ export class MockLotteryContract implements ILotteryContract {
     selectedOngId: string,
     betAmount: string
   ): Promise<GameResult> {
+    // Normalize userId to lowercase for consistency with user creation
+    const normalizedUserId = userId.toLowerCase();
+    
     console.log('🎰 [MOCK] Placing bet:', {
       userId,
+      normalizedUserId,
       selectedNumbers,
       selectedOngId,
       betAmount: `${betAmount} wei`
@@ -30,7 +34,7 @@ export class MockLotteryContract implements ILotteryContract {
 
     try {
       // 🔍 VALIDACIONES
-      await this.validateBet(userId, selectedNumbers, selectedOngId, betAmount);
+      await this.validateBet(normalizedUserId, selectedNumbers, selectedOngId, betAmount);
 
       // 🎯 GENERAR DATOS MOCK
       const mockTxHash = this.generateMockTxHash();
@@ -42,7 +46,7 @@ export class MockLotteryContract implements ILotteryContract {
       // 📝 CREAR SESIÓN DE JUEGO
       const gameSession = await prisma.gameSession.create({
         data: {
-          userId,
+          userId: normalizedUserId, // Use normalized userId
           selectedOngId,
           selectedNumbers: selectedNumbers.join(','),
           amountPlayed: betAmount,
@@ -55,7 +59,7 @@ export class MockLotteryContract implements ILotteryContract {
       });
 
       // 🔄 ACTUALIZAR TOTALES
-      await this.updateUserTotals(userId, betAmount, distribution.ongShare);
+      await this.updateUserTotals(normalizedUserId, betAmount, distribution.ongShare);
       await this.updateONGTotals(selectedOngId, distribution.ongShare);
 
       console.log('✅ [MOCK] Bet placed successfully');
@@ -77,19 +81,45 @@ export class MockLotteryContract implements ILotteryContract {
   }
 
   // 🎲 SORTEO DE NÚMEROS
-  async drawNumbers(): Promise<DrawResult> {
-    console.log('🎲 [MOCK] Drawing numbers...');
+  async drawNumbers(force: boolean = false, specificNumbers?: number[]): Promise<DrawResult> {
+    console.log('🎲 [MOCK] Drawing numbers...', { force, specificNumbers });
 
     try {
-      const pendingGames = await this.getPendingGames();
+      const pendingGames = await this.getPendingGames(force);
       
-      if (pendingGames.length < this.config.minPlayersForDraw) {
-        throw new Error(
-          `Not enough players. Need ${this.config.minPlayersForDraw}, have ${pendingGames.length}`
-        );
+      if (pendingGames.length < this.config.minPlayersForDraw && !force) {
+        console.log(`⚠️  [MOCK] Not enough players for draw. Need: ${this.config.minPlayersForDraw}, Have: ${pendingGames.length}`);
+        
+        // En desarrollo, permitir sorteo con menos jugadores
+        if (process.env.NODE_ENV === 'development' && pendingGames.length > 0) {
+          console.log('🔧 [MOCK] Development mode: allowing draw with fewer players');
+        } else {
+          throw new Error(
+            `Not enough players. Need ${this.config.minPlayersForDraw}, have ${pendingGames.length}`
+          );
+        }
       }
 
-      const winningNumbers = this.generateWinningNumbers();
+      if (pendingGames.length === 0) {
+        if (force) {
+          // For forced draws, create a mock draw with no winners
+          console.log('🔧 [MOCK] Forced draw with no games - creating empty draw');
+          const winningNumbers = specificNumbers || this.generateWinningNumbers();
+          const drawId = `draw_${Date.now()}`;
+          
+          return {
+            winningNumbers,
+            winners: [],
+            transactionHash: this.generateMockTxHash(),
+            totalPrizePool: '0',
+            drawId
+          };
+        } else {
+          throw new Error('No pending games to draw');
+        }
+      }
+
+      const winningNumbers = specificNumbers || this.generateWinningNumbers();
       console.log('🎯 [MOCK] Winning numbers:', winningNumbers);
 
       const winners = await this.findWinners(pendingGames, winningNumbers);
@@ -122,12 +152,13 @@ export class MockLotteryContract implements ILotteryContract {
 
   // 📊 GETTERS
   async getCurrentPool(): Promise<string> {
-    const result = await prisma.gameSession.aggregate({
-      _sum: { amountPlayed: true },
-      where: { winningNumbers: null }
+    // Since we can't aggregate string fields directly, we'll fetch all records and sum manually
+    const games = await prisma.gameSession.findMany({
+      where: { winningNumbers: null },
+      select: { amountPlayed: true }
     });
 
-    const totalPlayed = BigInt(result._sum.amountPlayed || '0');
+    const totalPlayed = games.reduce((sum, game) => sum + BigInt(game.amountPlayed), BigInt(0));
     const poolAmount = (totalPlayed * BigInt(this.config.poolPercentage)) / BigInt(100);
     
     return poolAmount.toString();
@@ -197,8 +228,78 @@ export class MockLotteryContract implements ILotteryContract {
     console.log(`🔧 [MOCK] Min players set to: ${count}`);
   }
 
-  async triggerDraw(): Promise<DrawResult> {
-    return await this.drawNumbers();
+  async triggerDraw(specificNumbers?: number[]): Promise<DrawResult> {
+    console.log('🎯 [MOCK] Admin triggered draw with specificNumbers:', specificNumbers);
+    
+    try {
+      // Para testing, simplificamos el proceso - solo generar números y simular resultado
+      const winningNumbers = specificNumbers || this.generateWinningNumbers();
+      const drawId = `admin_draw_${Date.now()}`;
+      
+      // Obtener juegos pendientes de manera simple
+      const pendingGames = await prisma.gameSession.findMany({
+        where: { winningNumbers: null },
+        take: 100 // Limitar para evitar problemas de memoria
+      });
+      
+      console.log(`🎲 [MOCK] Found ${pendingGames.length} pending games`);
+      
+      // Buscar ganadores de manera simple
+      const winners = [];
+      for (const game of pendingGames) {
+        const selectedNumbers = game.selectedNumbers.split(',').map(Number);
+        const winningNumbersArray = winningNumbers;
+        
+        // Verificar si hay coincidencia exacta (todos los números)
+        const isWinner = selectedNumbers.every((num, index) => num === winningNumbersArray[index]);
+        
+        if (isWinner) {
+          winners.push({
+            userId: game.userId,
+            gameId: game.id,
+            prizeAmount: '1000000000000000000', // Premio fijo para testing
+            matchedNumbers: 4
+          });
+        }
+      }
+      
+      console.log(`👑 [MOCK] Found ${winners.length} winners`);
+      
+      // Actualizar los juegos de manera simple
+      await prisma.gameSession.updateMany({
+        where: { winningNumbers: null },
+        data: {
+          winningNumbers: winningNumbers.join(','),
+          isWinner: false,
+          confirmedAt: new Date()
+        }
+      });
+      
+      // Actualizar ganadores específicamente
+      for (const winner of winners) {
+        await prisma.gameSession.update({
+          where: { id: winner.gameId },
+          data: {
+            isWinner: true,
+            prizeAmount: winner.prizeAmount
+          }
+        });
+      }
+      
+      console.log('✅ [MOCK] Draw completed successfully');
+      
+      return {
+        winningNumbers,
+        winners,
+        transactionHash: this.generateMockTxHash(),
+        totalPrizePool: (BigInt(winners.length) * BigInt('1000000000000000000')).toString(),
+        drawId
+      };
+      
+    } catch (error: any) {
+      console.error('❌ [MOCK] Error in triggerDraw:', error);
+      throw new Error(`Draw failed: ${error?.message || 'Unknown error'}`);
+    }
   }
 
   async getDrawHistory(limit: number = 10): Promise<DrawResult[]> {
@@ -218,6 +319,15 @@ export class MockLotteryContract implements ILotteryContract {
     const numbersValidation = validateLotteryNumbers(selectedNumbers);
     if (!numbersValidation.isValid) {
       throw new Error(numbersValidation.message);
+    }
+
+    // Validar que el usuario existe
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new Error(`Usuario con ID ${userId} no existe. Asegúrate de que el usuario se haya creado correctamente.`);
     }
 
     // Validar ONG existe y está activa
@@ -258,21 +368,27 @@ export class MockLotteryContract implements ILotteryContract {
   }
 
   private generateWinningNumbers(): number[] {
-    const numbers = new Set<number>();
-    while (numbers.size < this.config.numbersCount) {
-      numbers.add(Math.floor(Math.random() * this.config.numbersRange) + 1);
+    const numbers: number[] = [];
+    for (let i = 0; i < this.config.numbersCount; i++) {
+      numbers.push(Math.floor(Math.random() * (this.config.numbersRange + 1))); // 0 to numbersRange (0-9)
     }
-    return Array.from(numbers).sort((a, b) => a - b);
+    return numbers;
   }
 
-  private async getPendingGames() {
+  private async getPendingGames(force: boolean = false) {
+    const whereCondition: any = {
+      winningNumbers: null
+    };
+
+    // If not forcing, only include games from last 24 hours
+    if (!force) {
+      whereCondition.playedAt = {
+        gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Últimas 24h
+      };
+    }
+
     return await prisma.gameSession.findMany({
-      where: {
-        winningNumbers: null,
-        playedAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Últimas 24h
-        }
-      },
+      where: whereCondition,
       include: {
         user: { select: { id: true, email: true } },
         selectedOng: { select: { id: true, name: true } }
@@ -285,7 +401,7 @@ export class MockLotteryContract implements ILotteryContract {
 
     for (const game of games) {
       const selectedNumbers = game.selectedNumbers.split(',').map(Number);
-      const matches = selectedNumbers.filter(num => winningNumbers.includes(num));
+      const matches = selectedNumbers.filter((num: number) => winningNumbers.includes(num));
       
       if (matches.length >= this.config.minMatchesToWin) {
         winners.push({
@@ -316,13 +432,23 @@ export class MockLotteryContract implements ILotteryContract {
         }
       });
 
-      await prisma.user.update({
+      // Get current user to update totals correctly
+      const currentUser = await prisma.user.findUnique({
         where: { id: winner.userId },
-        data: {
-          totalWinnings: { increment: prizePerWinner.toString() },
-          totalGamesWon: { increment: 1 }
-        }
+        select: { totalWinnings: true, totalGamesWon: true }
       });
+
+      if (currentUser) {
+        const newTotalWinnings = (BigInt(currentUser.totalWinnings) + prizePerWinner).toString();
+        
+        await prisma.user.update({
+          where: { id: winner.userId },
+          data: {
+            totalWinnings: newTotalWinnings,
+            totalGamesWon: currentUser.totalGamesWon + 1
+          }
+        });
+      }
 
       winner.prizeAmount = prizePerWinner.toString();
     }
@@ -345,29 +471,65 @@ export class MockLotteryContract implements ILotteryContract {
   }
 
   private async updateUserTotals(userId: string, betAmount: string, contribution: string) {
-    await prisma.user.upsert({
+    // Get current user to calculate new totals
+    const currentUser = await prisma.user.findUnique({
       where: { id: userId },
-      update: {
-        totalAmountPlayed: { increment: betAmount },
-        totalContributed: { increment: contribution },
-        participations: { increment: 1 }
-      },
-      create: {
-        id: userId,
-        totalAmountPlayed: betAmount,
-        totalContributed: contribution,
-        participations: 1
+      select: { 
+        totalAmountPlayed: true, 
+        totalContributed: true,
+        participations: true 
       }
     });
+
+    if (currentUser) {
+      // Update existing user by adding to current totals
+      const newTotalPlayed = (BigInt(currentUser.totalAmountPlayed) + BigInt(betAmount)).toString();
+      const newTotalContributed = (BigInt(currentUser.totalContributed) + BigInt(contribution)).toString();
+      
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          totalAmountPlayed: newTotalPlayed,
+          totalContributed: newTotalContributed,
+          participations: currentUser.participations + 1
+        }
+      });
+    } else {
+      // Create new user if doesn't exist (this should not happen if validation works)
+      await prisma.user.create({
+        data: {
+          id: userId,
+          totalAmountPlayed: betAmount,
+          totalContributed: contribution,
+          participations: 1,
+          totalWinnings: '0',
+          totalGamesWon: 0,
+          longestStreak: 0
+        }
+      });
+    }
   }
 
   private async updateONGTotals(ongId: string, contribution: string) {
-    await prisma.approvedONG.update({
+    // Get current ONG to calculate new total
+    const currentONG = await prisma.approvedONG.findUnique({
       where: { id: ongId },
-      data: {
-        totalGamesSupporting: { increment: 1 },
-        totalFundsReceived: { increment: contribution }
+      select: { 
+        totalFundsReceived: true,
+        totalGamesSupporting: true 
       }
     });
+
+    if (currentONG) {
+      const newTotalFunds = (BigInt(currentONG.totalFundsReceived) + BigInt(contribution)).toString();
+      
+      await prisma.approvedONG.update({
+        where: { id: ongId },
+        data: {
+          totalGamesSupporting: currentONG.totalGamesSupporting + 1,
+          totalFundsReceived: newTotalFunds
+        }
+      });
+    }
   }
 }

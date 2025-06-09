@@ -58,11 +58,11 @@ export interface ILotteryContract {
   ): Promise<GameResult>;
 
   // 🎲 SORTEO DE NÚMEROS (automatizado o manual)
-  drawNumbers(): Promise<DrawResult>;
+  drawNumbers(force?: boolean): Promise<DrawResult>;
   
   // 🔧 FUNCIONES DE ADMINISTRACIÓN
   setMinPlayersForDraw(count: number): Promise<void>;
-  triggerDraw(): Promise<DrawResult>; // Para testing
+  triggerDraw(specificNumbers?: number[]): Promise<DrawResult>; // Para testing
   
   // 📊 CONSULTAS DEL ESTADO
   getCurrentPool(): Promise<string>;

@@ -2,9 +2,7 @@
 // POST /api/users/get-or-create
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../src/lib/prisma';
 
 interface GetOrCreateUserRequest {
   walletAddress: string;
@@ -60,7 +58,7 @@ export default async function handler(
 
     // 🔍 INTENTAR ENCONTRAR USUARIO EXISTENTE
     let user = await prisma.user.findUnique({
-      where: { walletAddress: normalizedAddress }
+      where: { id: normalizedAddress }
     });
 
     let isNew = false;
@@ -72,12 +70,13 @@ export default async function handler(
       user = await prisma.user.create({
         data: {
           id: normalizedAddress, // Usar la dirección como ID
-          walletAddress: normalizedAddress,
           email: email || null,
-          name: name || `User ${normalizedAddress.slice(0, 8)}...`,
           participations: 0,
+          totalAmountPlayed: '0',
           totalWinnings: '0',
-          isActive: true
+          totalContributed: '0',
+          totalGamesWon: 0,
+          longestStreak: 0
         }
       });
 
@@ -94,9 +93,9 @@ export default async function handler(
       data: {
         user: {
           id: user.id,
-          walletAddress: user.walletAddress,
+          walletAddress: user.id, // The id IS the wallet address
           email: user.email || undefined,
-          name: user.name || undefined,
+          name: name || `User ${user.id.slice(0, 8)}...`, // Use provided name or generate one
           createdAt: user.createdAt,
           isNew
         }
@@ -111,7 +110,5 @@ export default async function handler(
       message: 'Internal server error',
       error: error instanceof Error ? error.message : 'Unknown error occurred'
     });
-  } finally {
-    await prisma.$disconnect();
   }
 }

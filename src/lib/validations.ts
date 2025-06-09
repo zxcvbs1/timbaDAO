@@ -65,24 +65,18 @@ export function validateLotteryNumbers(numbers: number[]): ValidationResult {
     };
   }
 
-  // Verificar rango válido
+  // Verificar rango válido (0-9 para cada dígito)
   for (const num of numbers) {
-    if (num < 1 || num > config.numbersRange) {
+    if (num < 0 || num > 9) {
       return {
         isValid: false,
-        message: `Los números deben estar entre 1 y ${config.numbersRange}`
+        message: `Cada dígito debe estar entre 0 y 9`
       };
     }
   }
 
-  // Verificar números únicos
-  const uniqueNumbers = new Set(numbers);
-  if (uniqueNumbers.size !== numbers.length) {
-    return {
-      isValid: false,
-      message: 'No puedes repetir números'
-    };
-  }
+  // Note: We allow repeated digits in different positions (e.g., 5555, 4344, etc.)
+  // This is intentional for lottery-style games where each position is independent
 
   return {
     isValid: true,

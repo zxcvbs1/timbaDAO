@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "npx ts-node scripts/seed.ts"
+    "seed": "npx ts-node scripts/seed.ts",
+    "test:dev": "node scripts/dev-test.js",
+    "test:controlled": "node scripts/test-controlled-draw.js",
+    "db:push": "npx prisma db push",
+    "db:reset": "npx prisma migrate reset",
+    "db:studio": "npx prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

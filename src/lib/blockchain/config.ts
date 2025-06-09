@@ -19,9 +19,9 @@ export const MANTLE_TESTNET = {
 
 export const GAME_CONFIG = {
   // 🎮 PARÁMETROS DEL JUEGO
-  numbersCount: 4,              // 4 números por jugada
-  numbersRange: 50,             // Números del 1 al 50
-  minMatchesToWin: 3,           // Mínimo 3 números para ganar
+  numbersCount: 4,              // 4 dígitos por jugada (ej: 5555, 1234, 0987)
+  numbersRange: 9,              // Dígitos del 0 al 9
+  minMatchesToWin: 3,           // Mínimo 3 dígitos correctos para ganar
   defaultBetAmount: '1000000000000000000', // 1 MNT en wei
   
   // 💰 DISTRIBUCIÓN DE FONDOS
@@ -31,7 +31,7 @@ export const GAME_CONFIG = {
   
   // 🕐 TIMING
   drawInterval: 86400,          // 24 horas en segundos
-  minPlayersForDraw: 3,         // Mínimo jugadores para sorteo
+  minPlayersForDraw: process.env.NODE_ENV === 'development' ? 1 : 3, // 1 en dev, 3 en prod
   
   // 🎯 PARTICIPACIONES MÍNIMAS (CLAVE DEL SISTEMA)
   participations: {
