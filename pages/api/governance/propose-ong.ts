@@ -50,9 +50,7 @@ export default async function handler(
       message: 'Method not allowed',
       error: 'Only POST method is supported'
     });
-  }
-
-  try {
+  }  try {
     // 📝 EXTRAER Y VALIDAR DATOS
     const { userId, ongData }: ProposeONGRequest = req.body;
 
@@ -60,26 +58,27 @@ export default async function handler(
       return res.status(400).json({
         success: false,
         message: 'Missing required fields',
-        error: 'userId and ongData are required'
-      });
+        error: 'userId and ongData are required'      });
     }
+
+    // 🔧 NORMALIZAR USERID (consistente con place-bet.ts)
+    const normalizedUserId = userId.toLowerCase();
+    console.log('🔧 [API] Normalized userId:', normalizedUserId);
 
     // 🔍 VALIDAR O CREAR USUARIO
     let user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: normalizedUserId }, // Usar userId normalizado
       select: { 
         id: true, 
         email: true, 
         participations: true 
       }
-    });
-
-    if (!user) {
+    });    if (!user) {
       // Crear usuario automáticamente si no existe
-      console.log('🆕 Creating new user for governance:', userId);
+      console.log('🆕 Creating new user for governance:', normalizedUserId);
       user = await prisma.user.create({
         data: {
-          id: userId,
+          id: normalizedUserId, // Usar userId normalizado
           participations: 0,
           totalAmountPlayed: '0',
           totalWinnings: '0',
@@ -102,9 +101,7 @@ export default async function handler(
         message: 'Insufficient participations',
         error: eligibility.message
       });
-    }
-
-    // 🔍 VALIDAR DATOS DE LA ONG
+    }    // 🔍 VALIDAR DATOS DE LA ONG
     const ongValidation = validateONGData(ongData);
     if (!ongValidation.isValid) {
       return res.status(400).json({
@@ -146,17 +143,15 @@ export default async function handler(
         message: 'Proposal already exists',
         error: 'There is already an active proposal for this ONG'
       });
-    }
-
-    // 📝 CREAR PROPUESTA EN EL CONTRATO
+    }    // 📝 CREAR PROPUESTA EN EL CONTRATO
     console.log('📝 [API] Creating ONG proposal:', {
-      userId,
+      userId: normalizedUserId,
       ongName: ongData.name,
       category: ongData.category,
       userParticipations: user.participations
     });
 
-    const result = await governanceContract.proposeONG(userId, ongData);
+    const result = await governanceContract.proposeONG(normalizedUserId, ongData);
 
     console.log('✅ [API] ONG proposal created successfully:', {
       proposalId: result.proposalId,

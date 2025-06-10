@@ -156,9 +156,10 @@ export class MockLotteryContract implements ILotteryContract {
     const games = await prisma.gameSession.findMany({
       where: { winningNumbers: null },
       select: { amountPlayed: true }
-    });
-
-    const totalPlayed = games.reduce((sum, game) => sum + BigInt(game.amountPlayed), BigInt(0));
+    });    const totalPlayed = games.reduce((sum, game) => {
+      const amountBigInt = BigInt(Math.floor(parseFloat(game.amountPlayed)));
+      return sum + amountBigInt;
+    }, BigInt(0));
     const poolAmount = (totalPlayed * BigInt(this.config.poolPercentage)) / BigInt(100);
     
     return poolAmount.toString();
@@ -395,19 +396,29 @@ export class MockLotteryContract implements ILotteryContract {
       }
     });
   }
-
   private async findWinners(games: any[], winningNumbers: number[]) {
     const winners = [];
 
     for (const game of games) {
       const selectedNumbers = game.selectedNumbers.split(',').map(Number);
-      const matches = selectedNumbers.filter((num: number) => winningNumbers.includes(num));
       
-      if (matches.length >= this.config.minMatchesToWin) {
+      // 🔥 CALCULAR COINCIDENCIAS CORRECTAMENTE: NÚMERO Y POSICIÓN DEBEN COINCIDIR
+      let matchedNumbers = 0;
+      const minLength = Math.min(selectedNumbers.length, winningNumbers.length);
+      
+      for (let i = 0; i < minLength; i++) {
+        if (selectedNumbers[i] === winningNumbers[i]) {
+          matchedNumbers++;
+        }
+      }
+      
+      console.log(`🎯 [MOCK] Game ${game.id}: Selected: [${selectedNumbers}], Winning: [${winningNumbers}], Matches: ${matchedNumbers}`);
+      
+      if (matchedNumbers >= this.config.minMatchesToWin) {
         winners.push({
           userId: game.userId,
           gameId: game.id,
-          matchedNumbers: matches.length,
+          matchedNumbers,
           prizeAmount: '0' // Se calculará después
         });
       }
@@ -436,10 +447,9 @@ export class MockLotteryContract implements ILotteryContract {
       const currentUser = await prisma.user.findUnique({
         where: { id: winner.userId },
         select: { totalWinnings: true, totalGamesWon: true }
-      });
-
-      if (currentUser) {
-        const newTotalWinnings = (BigInt(currentUser.totalWinnings) + prizePerWinner).toString();
+      });      if (currentUser) {
+        const currentWinningsBigInt = BigInt(Math.floor(parseFloat(currentUser.totalWinnings)));
+        const newTotalWinnings = (currentWinningsBigInt + prizePerWinner).toString();
         
         await prisma.user.update({
           where: { id: winner.userId },
@@ -481,10 +491,13 @@ export class MockLotteryContract implements ILotteryContract {
       }
     });
 
-    if (currentUser) {
-      // Update existing user by adding to current totals
-      const newTotalPlayed = (BigInt(currentUser.totalAmountPlayed) + BigInt(betAmount)).toString();
-      const newTotalContributed = (BigInt(currentUser.totalContributed) + BigInt(contribution)).toString();
+    if (currentUser) {      // Update existing user by adding to current totals
+      const betAmountBigInt = BigInt(betAmount);
+      const contributionBigInt = BigInt(Math.floor(parseFloat(contribution)));
+      const currentTotalPlayedBigInt = BigInt(Math.floor(parseFloat(currentUser.totalAmountPlayed)));
+      const currentTotalContributedBigInt = BigInt(Math.floor(parseFloat(currentUser.totalContributed)));
+      const newTotalPlayed = (currentTotalPlayedBigInt + betAmountBigInt).toString();
+      const newTotalContributed = (currentTotalContributedBigInt + contributionBigInt).toString();
       
       await prisma.user.update({
         where: { id: userId },
@@ -494,13 +507,12 @@ export class MockLotteryContract implements ILotteryContract {
           participations: currentUser.participations + 1
         }
       });
-    } else {
-      // Create new user if doesn't exist (this should not happen if validation works)
+    } else {      // Create new user if doesn't exist (this should not happen if validation works)
       await prisma.user.create({
         data: {
           id: userId,
           totalAmountPlayed: betAmount,
-          totalContributed: contribution,
+          totalContributed: BigInt(Math.floor(parseFloat(contribution))).toString(),
           participations: 1,
           totalWinnings: '0',
           totalGamesWon: 0,
@@ -509,7 +521,6 @@ export class MockLotteryContract implements ILotteryContract {
       });
     }
   }
-
   private async updateONGTotals(ongId: string, contribution: string) {
     // Get current ONG to calculate new total
     const currentONG = await prisma.approvedONG.findUnique({
@@ -518,10 +529,11 @@ export class MockLotteryContract implements ILotteryContract {
         totalFundsReceived: true,
         totalGamesSupporting: true 
       }
-    });
-
-    if (currentONG) {
-      const newTotalFunds = (BigInt(currentONG.totalFundsReceived) + BigInt(contribution)).toString();
+    });    if (currentONG) {
+      // Ensure both values are valid BigInt strings (no decimals)
+      const contributionBigInt = BigInt(Math.floor(parseFloat(contribution)));
+      const currentFundsBigInt = BigInt(Math.floor(parseFloat(currentONG.totalFundsReceived)));
+      const newTotalFunds = (currentFundsBigInt + contributionBigInt).toString();
       
       await prisma.approvedONG.update({
         where: { id: ongId },

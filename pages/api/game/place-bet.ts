@@ -39,7 +39,6 @@ export default async function handler(
       error: 'Only POST method is supported'
     });
   }
-
   try {
     // 📝 EXTRAER Y VALIDAR DATOS
     const { userId, selectedNumbers, selectedOngId, betAmount }: PlaceBetRequest = req.body;
@@ -56,17 +55,29 @@ export default async function handler(
     // Normalize userId to lowercase for database lookup, consistent with user creation
     const normalizedUserIdForDB = userId.toLowerCase();
 
-    // 🔍 VALIDAR USUARIO
-    const user = await prisma.user.findUnique({
+    // 🔍 OBTENER O CREAR USUARIO
+    let user = await prisma.user.findUnique({
       where: { id: normalizedUserIdForDB } // Use normalized ID for lookup
     });
 
+    // 🆕 CREAR USUARIO SI NO EXISTE
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-        error: `User with id ${userId} does not exist` // Error message still shows original ID from request
+      console.log('👤 [API] User not found, creating new user...');
+      
+      user = await prisma.user.create({
+        data: {
+          id: normalizedUserIdForDB, // Usar la dirección normalizada como ID
+          email: null,
+          participations: 0,
+          totalAmountPlayed: '0',
+          totalWinnings: '0',
+          totalContributed: '0',
+          totalGamesWon: 0,
+          longestStreak: 0
+        }
       });
+
+      console.log(`✅ [API] New user created: ${normalizedUserIdForDB}`);
     }
 
     // 🔍 VALIDAR ONG
@@ -101,9 +112,7 @@ export default async function handler(
         message: 'Invalid bet amount',
         error: amountValidation.message
       });
-    }
-
-    // 🎰 EJECUTAR APUESTA EN EL CONTRATO
+    }    // 🎰 EJECUTAR APUESTA EN EL CONTRATO
     console.log('🎰 [API] Processing bet:', {
       userId,
       selectedNumbers,
@@ -121,13 +130,8 @@ export default async function handler(
       finalBetAmount
     );
 
-    // 📊 ACTUALIZAR PARTICIPACIONES DEL USUARIO
-    await prisma.user.update({
-      where: { id: normalizedUserIdForDB }, // Use normalized ID for update
-      data: {
-        participations: { increment: 1 }
-      }
-    });
+    // 📝 NOTA: Las estadísticas del usuario se actualizan automáticamente 
+    // en MockLotteryContract.updateUserTotals() para evitar duplicación
 
     // 📊 ACTUALIZAR ESTADÍSTICAS DE LA ONG
     const currentOng = await prisma.approvedONG.findUnique({

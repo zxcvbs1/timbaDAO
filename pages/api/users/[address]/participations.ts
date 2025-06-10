@@ -45,13 +45,15 @@ export default async function handler(
         message: 'Missing required parameter',
         error: 'User address is required'
       });
-    }
+    }    console.log('👤 [API] Fetching user participations for:', address);
 
-    console.log('👤 [API] Fetching user participations for:', address);
+    // 🔧 NORMALIZAR DIRECCIÓN (consistente con place-bet.ts)
+    const normalizedAddress = address.toLowerCase();
+    console.log('🔧 [API] Normalized address:', normalizedAddress);
 
     // 🔍 BUSCAR USUARIO Y SUS ESTADÍSTICAS
     const user = await prisma.user.findUnique({
-      where: { id: address },
+      where: { id: normalizedAddress }, // Usar dirección normalizada
       select: {
         id: true,
         email: true,
@@ -61,18 +63,16 @@ export default async function handler(
         totalContributed: true,
         totalGamesWon: true
       }
-    });
-
-    if (!user) {
+    });    if (!user) {
       // Si el usuario no existe, retornar 0 participaciones
-      console.log(`ℹ️ [API] User ${address} not found, returning 0 participations`);
+      console.log(`ℹ️ [API] User ${normalizedAddress} not found, returning 0 participations`);
       
       return res.status(200).json({
         success: true,
         message: 'User not found, returning default values',
         participations: 0,
         userInfo: {
-          id: address,
+          id: normalizedAddress,
           email: null,
           participations: 0,
           totalAmountPlayed: '0',
@@ -83,7 +83,7 @@ export default async function handler(
       });
     }
 
-    console.log(`✅ [API] User ${address} has ${user.participations} participations`);
+    console.log(`✅ [API] User ${normalizedAddress} has ${user.participations} participations`);
 
     // 🎯 RESPUESTA EXITOSA
     return res.status(200).json({

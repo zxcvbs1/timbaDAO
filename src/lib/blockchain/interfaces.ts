@@ -80,13 +80,13 @@ export interface ILotteryContract {
 }
 
 // ===== INTERFACE DEL CONTRATO DE GOVERNANZA =====
-export interface IONGGovernanceContract {
-  // 📝 PROPUESTAS DE ONGs (requiere participaciones mínimas)
+export interface IONGGovernanceContract {  // 📝 PROPUESTAS DE ONGs (requiere participaciones mínimas)
   proposeONG(
     userId: string,
     ongData: {
       name: string;
       description: string;
+      mission: string;
       walletAddress: string;
       website?: string;
       category: string;

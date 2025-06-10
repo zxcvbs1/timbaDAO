@@ -57,12 +57,15 @@ export default async function handler(
         success: false,
         message: 'Missing required fields',
         error: 'userId, proposalId, and support (boolean) are required'
-      });
-    }
+      });    }
+
+    // 🔧 NORMALIZAR USERID (consistente con place-bet.ts)
+    const normalizedUserId = userId.toLowerCase();
+    console.log('🔧 [API] Normalized userId:', normalizedUserId);
 
     // 🔍 VALIDAR USUARIO Y PARTICIPACIONES
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: normalizedUserId }, // Usar userId normalizado
       select: { 
         id: true, 
         email: true, 
@@ -131,18 +134,16 @@ export default async function handler(
         message: 'Already voted',
         error: 'You have already voted on this proposal'
       });
-    }
-
-    // 🗳️ EJECUTAR VOTO EN EL CONTRATO
+    }    // 🗳️ EJECUTAR VOTO EN EL CONTRATO
     console.log('🗳️ [API] Processing vote:', {
-      userId,
+      userId: normalizedUserId,
       proposalId,
       support: support ? 'FOR' : 'AGAINST',
       userParticipations: user.participations,
       voteWeight: user.participations
     });
 
-    const result = await governanceContract.vote(userId, proposalId, support);
+    const result = await governanceContract.vote(normalizedUserId, proposalId, support);
 
     // 📊 OBTENER INFORMACIÓN ACTUALIZADA DE LA PROPUESTA
     const updatedProposal = await prisma.oNGProposal.findUnique({

@@ -173,9 +173,8 @@ export function validateONGData(ongData: {
       };
     }
   }
-
   // Validar categoría
-  const validCategories = ['HEALTH', 'EDUCATION', 'ENVIRONMENT', 'SOCIAL', 'ANIMALS', 'TECHNOLOGY', 'ARTS', 'SPORTS', 'OTHER'];
+  const validCategories = ['HEALTH', 'EDUCATION', 'ENVIRONMENT', 'CHILDREN', 'ANIMALS', 'GENERAL', 'OTHER'];
   if (!validCategories.includes(ongData.category)) {
     return {
       isValid: false,

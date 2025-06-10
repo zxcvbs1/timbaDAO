@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import NeonDisplay from '@/components/lottery/NeonDisplay'
 import NumberInput from '@/components/lottery/NumberInput'
 import PlayButton from '@/components/lottery/PlayButton'
+import DrawResults, { DrawResultsRef } from '@/components/lottery/DrawResults'
 import BackgroundEffect from '@/components/ui/BackgroundEffect'
 import ShareButton from '@/components/ui/ShareButton'
 import ONGSelector from '@/components/ong/ONGSelector'
@@ -25,24 +26,31 @@ function GameContentInner() {
   const [betResult, setBetResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [showGovernance, setShowGovernance] = useState(false)
+  const [showResults, setShowResults] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isExecutingDraw, setIsExecutingDraw] = useState(false)
+    // 🔄 ESTADOS PARA AUTO-REFRESH DE RESULTADOS
+  const [shouldRefreshResults, setShouldRefreshResults] = useState(false)
+  const [lastGameTimestamp, setLastGameTimestamp] = useState<number>(0)
+  const drawResultsRef = useRef<DrawResultsRef>(null)
+  
+  // 🎯 TEST MODE STATES
   const [testMode, setTestMode] = useState<'normal' | 'win' | 'lose' | 'specific'>('normal')
   const [testNumbers, setTestNumbers] = useState('')
-  const userCreationAttempted = useRef(false)
   
   const audioRef = useAudio()
-
+  
   // 🔐 Usar Privy para autenticación real
   const { ready, authenticated, user, login, logout } = usePrivy()
 
   // 👤 Crear o obtener usuario cuando se autentique
+  const userCreationAttempted = useRef(false)
+  
   useEffect(() => {
     const createOrGetUser = async () => {
-      // Evitar múltiples llamadas con un ref
       if (authenticated && user?.wallet?.address && !currentUser && !isCreatingUser && !userCreationAttempted.current) {
-        userCreationAttempted.current = true
+        userCreationAttempted.current = true // Marcar que ya intentamos crear el usuario
         setIsCreatingUser(true)
         
         try {
@@ -57,12 +65,9 @@ function GameContentInner() {
             console.log('✅ Usuario autenticado:', result.user.id, result.user.isNew ? '(nuevo)' : '(existente)')
           } else {
             setError(result.error || 'Error al crear usuario')
-            userCreationAttempted.current = false // Permitir retry en caso de error
           }
         } catch (err) {
           setError('Error de conexión al autenticar usuario')
-          console.error('Error creating user:', err)
-          userCreationAttempted.current = false // Permitir retry en caso de error
         } finally {
           setIsCreatingUser(false)
         }
@@ -70,7 +75,7 @@ function GameContentInner() {
     }
 
     createOrGetUser()
-  }, [authenticated, user?.wallet?.address]) // Solo depender de authenticated y wallet address
+  }, [authenticated, user?.wallet?.address, currentUser, isCreatingUser])
 
   // 🧹 Limpiar usuario cuando se desconecte
   useEffect(() => {
@@ -82,6 +87,18 @@ function GameContentInner() {
       userCreationAttempted.current = false // Reset el flag cuando se desconecte
     }
   }, [authenticated])
+  // 🔄 EFECTO PARA AUTO-REFRESH DESPUÉS DE JUEGOS
+  useEffect(() => {
+    if (shouldRefreshResults && drawResultsRef.current?.forceRefresh) {
+      console.log('🔄 [GameContent] Triggering results refresh after game completion')
+      
+      // Esperar un momento para que la DB se actualice completamente
+      setTimeout(() => {
+        drawResultsRef.current?.forceRefresh()
+        setShouldRefreshResults(false)
+      }, 1000)
+    }
+  }, [shouldRefreshResults])
 
   // Si no está listo Privy, mostrar loading
   if (!ready) {
@@ -266,6 +283,11 @@ function GameContentInner() {
             setIsPlaying(false)
             setHasPlayed(true)
             
+            // 🔄 ACTIVAR AUTO-REFRESH DE RESULTADOS
+            console.log('🎮 [GameContent] Game completed, triggering results refresh')
+            setLastGameTimestamp(Date.now())
+            setShouldRefreshResults(true)
+            
             if (selectedNumbers === finalWinningNumbers) {
               audioRef.current?.playWinSound()
             } else {
@@ -325,9 +347,16 @@ function GameContentInner() {
   const handleShowGovernance = () => {
     setShowGovernance(true)
   }
-
   const handleHideGovernance = () => {
     setShowGovernance(false)
+  }
+
+  const handleShowResults = () => {
+    setShowResults(true)
+  }
+
+  const handleHideResults = () => {
+    setShowResults(false)
   }
 
   // 🎲 Función para ejecutar sorteo en desarrollo
@@ -356,6 +385,12 @@ function GameContentInner() {
       if (data.success) {
         const winNumbers = data.result.winningNumbers.join('')
         setError(`✅ Sorteo ejecutado: ${winNumbers}. ${data.result.winners.length} ganador(es)`)
+        
+        // 🔄 ACTIVAR AUTO-REFRESH DE RESULTADOS TRAS SORTEO MANUAL
+        console.log('🔧 [GameContent] Manual draw completed, triggering results refresh')
+        setLastGameTimestamp(Date.now())
+        setShouldRefreshResults(true)
+        
         // Actualizar números ganadores en pantalla
         setWinningNumbers(winNumbers)
       } else {
@@ -368,7 +403,6 @@ function GameContentInner() {
       setIsExecutingDraw(false)
     }
   }
-
   // Mostrar panel de gobernanza
   if (showGovernance) {
     return (
@@ -376,6 +410,31 @@ function GameContentInner() {
         userAddress={userAddress}
         onBack={handleHideGovernance}
       />
+    )
+  }
+
+  // Mostrar historial completo de resultados
+  if (showResults) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+        <div className="container mx-auto px-4 py-8">
+          <button
+            onClick={handleHideResults}
+            className="mb-6 px-6 py-3 bg-gray-800 text-cyan-400 border border-cyan-400 rounded-lg hover:bg-cyan-400 hover:text-black transition-all duration-300"
+          >
+            ← Volver al Juego
+          </button>
+          
+          <DrawResults 
+            ref={drawResultsRef}
+            maxResults={20}
+            showHeader={true}
+            userAddress={userAddress}
+            autoRefresh={true}
+            refreshInterval={3000}
+          />
+        </div>
+      </div>
     )
   }
 
@@ -404,25 +463,26 @@ function GameContentInner() {
           >
             🔐 Desconectar
           </button>
-
+          
           <ONGSelector onSelectONG={handleSelectONG} onShowGovernance={handleShowGovernance} />
         </div>
       </>
     )
   }
 
+  // Pantalla principal del juego
   return (
     <>
       <BackgroundEffect />
-      <div className="min-h-screen flex flex-col items-center px-4 py-8">
+      
+      <main className="min-h-screen relative">
         <button
           onClick={handleBackToONGSelection}
-          className="absolute top-4 left-4 px-4 py-2 bg-gray-800 text-cyan-400 border border-cyan-400 rounded-lg hover:bg-cyan-400 hover:text-black transition-all duration-300"
+          className="absolute top-4 left-4 z-50 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-all duration-300 hover:scale-105"
         >
           ← Cambiar ONG
         </button>
-
-        {/* Botón de logout */}
+        
         <button
           onClick={logout}
           className="absolute top-4 right-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300"
@@ -430,8 +490,8 @@ function GameContentInner() {
           🔐 Desconectar
         </button>
 
-        <div className="text-center mb-8">
-          <div className="mb-4">
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
+          <div className="text-center mb-8">
             <div className="text-4xl mb-2">{selectedONG.icon}</div>
             <h2 className="text-2xl font-bold text-cyan-400 mb-2">
               Jugando para: {selectedONG.name}
@@ -445,10 +505,25 @@ function GameContentInner() {
           </div>
         </div>
 
-        <div className="w-full max-w-4xl">
-          <h1 className="text-6xl font-bold text-center mb-12 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
+        <div className="w-full max-w-4xl">          <h1 className="text-6xl font-bold text-center mb-12 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
             🎰 SUPER LOTERÍA 🎰
           </h1>
+
+          {/* 🚀 BOTONES DE NAVEGACIÓN RÁPIDA */}
+          <div className="flex justify-center gap-4 mb-8">
+            <button
+              onClick={handleShowResults}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 hover:scale-105 flex items-center gap-2"
+            >
+              🎲 Ver Resultados
+            </button>
+            <button
+              onClick={handleShowGovernance}
+              className="px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all duration-300 hover:scale-105 flex items-center gap-2"
+            >
+              🗳️ Governance
+            </button>
+          </div>
           
           <div className="mb-8">
             <NeonDisplay 
@@ -460,30 +535,18 @@ function GameContentInner() {
                 ❌ {error}
               </p>
             )}
-            {selectedNumbers.length === 4 && (
-              <p className="text-center text-yellow-400 mt-2 text-sm">
-                ✨ ¡Números seleccionados! Haz clic en JUGAR
+            {selectedNumbers.length === 4 && !hasPlayed && (
+              <p className="text-center text-green-400 mt-2 text-sm animate-pulse">
+                ✅ ¡Listo para jugar!
               </p>
             )}
-            <p className="text-center text-cyan-400 mt-2 text-sm">
-              💰 Monto de apuesta: 1 MNT
-            </p>
           </div>
-
-          {/* Selector de modo de testing (solo en desarrollo) */}
-          <TestModeSelection
-            testMode={testMode}
-            testNumbers={testNumbers}
-            selectedNumbers={selectedNumbers}
-            onTestModeChange={setTestMode}
-            onTestNumbersChange={setTestNumbers}
-          />
 
           <div className="mb-8">
             <NumberInput 
               value={selectedNumbers}
               onChange={setSelectedNumbers}
-              disabled={isPlaying || hasPlayed}
+              disabled={isPlaying}
             />
           </div>
 
@@ -515,9 +578,24 @@ function GameContentInner() {
                   selectedONG={selectedONG}
                 />
               </div>
+            )}            {/* 🔧 PANEL DE INFORMACIÓN DE DESARROLLO */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-8 max-w-lg">                <TestModeSelection 
+                  testMode={testMode}
+                  onTestModeChange={setTestMode}
+                  testNumbers={testNumbers}
+                  onTestNumbersChange={setTestNumbers}
+                  selectedNumbers={selectedNumbers}
+                />
+                
+                <AdminTestingPanel 
+                  onExecuteDraw={handleExecuteDraw}
+                  isExecuting={isExecutingDraw}
+                  selectedNumbers={selectedNumbers}
+                />
+              </div>
             )}
 
-            {/* 🔧 PANEL DE INFORMACIÓN DE DESARROLLO */}
             {process.env.NODE_ENV === 'development' && (
               <div className="mt-8 p-4 bg-gray-800 rounded-lg border border-gray-600">
                 <h3 className="text-yellow-400 text-sm font-bold mb-2">ℹ️ INFORMACIÓN DE DESARROLLO</h3>
@@ -529,9 +607,22 @@ function GameContentInner() {
                 </div>
               </div>
             )}
+
+            {/* 🎲 RESULTADOS DE SORTEOS RECIENTES */}
+            <div className="mt-12 w-full max-w-4xl">
+              <DrawResults 
+                ref={drawResultsRef}
+                maxResults={3}
+                showHeader={true}
+                userAddress={userAddress}
+                autoRefresh={true}
+                refreshInterval={5000}
+                key={lastGameTimestamp} // Forzar re-render cuando hay un nuevo juego
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </>
   )
 }

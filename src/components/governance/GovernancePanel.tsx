@@ -277,19 +277,42 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
     loadProposals()
     loadUserParticipations()
   }, [])
-
   const loadProposals = async () => {
     try {
       setLoading(true)
       const activeProposals = await apiClient.getActiveProposals()
-      setProposals(activeProposals)
+      
+      // 🔍 AGREGAR INFORMACIÓN DE VOTO DEL USUARIO A CADA PROPUESTA
+      const proposalsWithUserVote = await Promise.all(
+        activeProposals.map(async (proposal: any) => {
+          try {
+            // Verificar si el usuario ya votó en esta propuesta
+            const userVote = proposal.votes?.find((vote: any) => 
+              vote.userId.toLowerCase() === userAddress.toLowerCase()
+            )
+            return {
+              ...proposal,
+              userVote: userVote || null,
+              hasUserVoted: !!userVote
+            }
+          } catch (err) {
+            // Si hay error verificando el voto, asumir que no votó
+            return {
+              ...proposal,
+              userVote: null,
+              hasUserVoted: false
+            }
+          }
+        })
+      )
+      
+      setProposals(proposalsWithUserVote)
     } catch (err) {
       setError('Error al cargar propuestas')
     } finally {
       setLoading(false)
     }
   }
-
   const loadUserParticipations = async () => {
     try {
       const participations = await apiClient.getUserParticipations(userAddress)
@@ -299,21 +322,91 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
     }
   }
 
+  // 🔍 FUNCIÓN PARA VALIDAR SI EL FORMULARIO ES VÁLIDO
+  const isFormValid = () => {
+    if (!proposalForm.name || !proposalForm.description || !proposalForm.mission || !proposalForm.walletAddress) {
+      return false
+    }
+    
+    if (proposalForm.name.trim().length < 3 || proposalForm.name.length > 100) {
+      return false
+    }
+    
+    if (proposalForm.description.trim().length < 10 || proposalForm.description.length > 500) {
+      return false
+    }
+    
+    if (proposalForm.mission.trim().length < 5) {
+      return false
+    }
+    
+    if (!/^0x[a-fA-F0-9]{40}$/.test(proposalForm.walletAddress)) {
+      return false
+    }
+    
+    if (proposalForm.website && proposalForm.website.trim()) {
+      try {
+        new URL(proposalForm.website)
+      } catch {
+        return false
+      }
+    }
+    
+    return userParticipations >= 10
+  }
   const handleProposeONG = async () => {
     setError(null)
     setSuccess(null)
 
+    // 🔍 VALIDACIONES BÁSICAS
     if (!proposalForm.name || !proposalForm.description || !proposalForm.mission || !proposalForm.walletAddress) {
       setError('Por favor completa todos los campos obligatorios (*, incluyendo wallet address)')
       return
     }
 
-    // Validar formato de wallet address
+    // 🔍 VALIDAR NOMBRE (igual que en el servidor)
+    if (proposalForm.name.trim().length < 3) {
+      setError('El nombre de la ONG debe tener al menos 3 caracteres')
+      return
+    }
+    if (proposalForm.name.length > 100) {
+      setError('El nombre de la ONG no puede exceder 100 caracteres')
+      return
+    }
+
+    // 🔍 VALIDAR DESCRIPCIÓN (igual que en el servidor)
+    if (proposalForm.description.trim().length < 10) {
+      setError('La descripción debe tener al menos 10 caracteres')
+      return
+    }
+    if (proposalForm.description.length > 500) {
+      setError('La descripción no puede exceder 500 caracteres')
+      return
+    }
+
+    // 🔍 VALIDAR MISIÓN
+    if (proposalForm.mission.trim().length < 5) {
+      setError('La misión debe tener al menos 5 caracteres')
+      return
+    }
+
+    // 🔍 VALIDAR WALLET ADDRESS (igual que en el servidor)
     if (!/^0x[a-fA-F0-9]{40}$/.test(proposalForm.walletAddress)) {
       setError('La dirección de wallet debe ser una dirección Ethereum válida (0x seguido de 40 caracteres hexadecimales)')
       return
     }
 
+    // 🔍 VALIDAR WEBSITE (si se proporciona)
+    if (proposalForm.website && proposalForm.website.trim()) {
+      try {
+        new URL(proposalForm.website)
+      } catch {
+        setError('La URL del sitio web no es válida. Debe incluir http:// o https://')
+        return
+      }
+    }
+
+    // 🔍 VALIDAR PARTICIPACIONES
     if (userParticipations < 10) {
       setError(`Necesitas al menos 10 participaciones para proponer una ONG. Tienes: ${userParticipations}`)
       return
@@ -344,9 +437,7 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
     if (userParticipations < 3) {
       setError(`Necesitas al menos 3 participaciones para votar. Tienes: ${userParticipations}`)
       return
-    }
-
-    try {
+    }    try {
       setLoading(true)
       const result = await apiClient.voteOnProposal(userAddress, proposalId, support)
       
@@ -354,10 +445,34 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
         setSuccess(`✅ Voto registrado: ${support ? 'A FAVOR' : 'EN CONTRA'}`)
         await loadProposals()
       } else {
-        setError(result.error || 'Error al registrar el voto')
+        // 🎯 MANEJO ESPECÍFICO DE ERRORES
+        if (result.error?.includes('ya has votado') || result.error?.includes('already voted')) {
+          setError('⚠️ Ya has votado en esta propuesta. No puedes votar dos veces.')
+        } else if (result.error?.includes('participaciones') || result.error?.includes('participations')) {
+          setError(`❌ Necesitas más participaciones para votar. Tienes: ${userParticipations}`)
+        } else if (result.error?.includes('terminado') || result.error?.includes('ended')) {
+          setError('⏰ El período de votación para esta propuesta ha terminado.')
+        } else if (result.error?.includes('activa') || result.error?.includes('active')) {
+          setError('📋 Esta propuesta ya no está activa para votación.')
+        } else {
+          setError(result.error || 'Error al registrar el voto')
+        }
       }
-    } catch (err) {
-      setError('Error de conexión al votar')
+    } catch (err: any) {
+      console.error('Error voting:', err)
+      
+      // 🎯 MANEJO DE ERRORES DE RED/CONEXIÓN
+      if (err.response?.status === 409) {
+        setError('⚠️ Ya has votado en esta propuesta. No puedes votar dos veces.')
+      } else if (err.response?.status === 403) {
+        setError(`❌ Necesitas más participaciones para votar. Tienes: ${userParticipations}`)
+      } else if (err.response?.status === 404) {
+        setError('❌ Propuesta no encontrada.')
+      } else if (err.response?.status === 400) {
+        setError('⚠️ Esta propuesta no está disponible para votación.')
+      } else {
+        setError('🔌 Error de conexión al votar. Intenta nuevamente.')
+      }
     } finally {
       setLoading(false)
     }
@@ -466,37 +581,93 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
                     <div style={{ color: '#fff', marginBottom: '10px' }}>
                       {proposal.description}
                     </div>
-                    
-                    <div style={{ color: '#00ffff', fontStyle: 'italic', marginBottom: '15px' }}>
+                      <div style={{ color: '#00ffff', fontStyle: 'italic', marginBottom: '15px' }}>
                       "{proposal.mission}"
                     </div>
 
-                    <VoteSection>
+                    {/* 💰 INFORMACIÓN ADICIONAL DE LA ONG */}
+                    <div style={{ 
+                      background: 'rgba(0, 255, 255, 0.1)', 
+                      border: '1px solid rgba(0, 255, 255, 0.3)',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      marginBottom: '15px',
+                      fontSize: '14px'
+                    }}>
+                      <div style={{ color: '#ffff00', marginBottom: '5px' }}>
+                        💰 <strong>Wallet:</strong> 
+                        <span style={{ 
+                          color: '#fff', 
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                          marginLeft: '8px'
+                        }}>
+                          {proposal.walletAddress}
+                        </span>
+                      </div>
+                      
+                      {proposal.website && (
+                        <div style={{ color: '#ffff00' }}>
+                          🌐 <strong>Sitio Web:</strong> 
+                          <a 
+                            href={proposal.website} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ 
+                              color: '#00ffff', 
+                              textDecoration: 'none',
+                              marginLeft: '8px'
+                            }}
+                            onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                          >
+                            {proposal.website}
+                          </a>
+                        </div>
+                      )}
+                    </div>                    <VoteSection>
                       <VoteStats>
                         <div>👍 A favor: {proposal.votesFor || 0}</div>
                         <div>👎 En contra: {proposal.votesAgainst || 0}</div>
                       </VoteStats>
                       
-                      <VoteButtons>
-                        <Button
-                          variant="secondary"
-                          onClick={() => handleVote(proposal.id, true)}
-                          disabled={loading || userParticipations < 3}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          👍 A Favor
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => handleVote(proposal.id, false)}
-                          disabled={loading || userParticipations < 3}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          👎 En Contra
-                        </Button>
-                      </VoteButtons>
+                      {/* 🗳️ INDICADOR DE VOTO DEL USUARIO */}
+                      {proposal.hasUserVoted ? (
+                        <div style={{
+                          background: 'rgba(255, 255, 0, 0.1)',
+                          border: '1px solid #ffff00',
+                          borderRadius: '8px',
+                          padding: '10px',
+                          textAlign: 'center',
+                          color: '#ffff00',
+                          marginBottom: '10px'
+                        }}>
+                          ✅ Ya votaste: <strong>{proposal.userVote?.support ? '👍 A FAVOR' : '👎 EN CONTRA'}</strong>
+                          <br />
+                          <small style={{ color: '#ccc' }}>No puedes votar nuevamente en esta propuesta</small>
+                        </div>
+                      ) : (
+                        <VoteButtons>
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleVote(proposal.id, true)}
+                            disabled={loading || userParticipations < 3}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            👍 A Favor
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleVote(proposal.id, false)}
+                            disabled={loading || userParticipations < 3}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            👎 En Contra
+                          </Button>
+                        </VoteButtons>
+                      )}
                     </VoteSection>
                   </ProposalCard>
                 ))
@@ -550,67 +721,122 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
                   <option value="⚽">⚽ Deportes</option>
                   <option value="🤝">🤝 Acción Social</option>
                 </Select>
-              </FormGroup>
-
-              <FormGroup>
+              </FormGroup>              <FormGroup>
                 <Label>📝 Nombre de la ONG *</Label>
                 <Input
                   type="text"
                   placeholder="Ej: Fundación Esperanza"
                   value={proposalForm.name}
                   onChange={(e) => setProposalForm({ ...proposalForm, name: e.target.value })}
+                  style={{
+                    borderColor: proposalForm.name.length >= 3 && proposalForm.name.length <= 100 ? '#00ff00' : 
+                                 proposalForm.name.length > 0 ? '#ff0000' : '#666'
+                  }}
                 />
-              </FormGroup>
-
-              <FormGroup>
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: proposalForm.name.length >= 3 && proposalForm.name.length <= 100 ? '#00ff00' : 
+                         proposalForm.name.length > 0 ? '#ff0000' : '#666',
+                  marginTop: '5px' 
+                }}>
+                  {proposalForm.name.length}/100 caracteres (mínimo 3)
+                </div>
+              </FormGroup>              <FormGroup>
                 <Label>📄 Descripción *</Label>
                 <TextArea
                   placeholder="Describe qué hace la organización y cómo ayuda..."
                   value={proposalForm.description}
                   onChange={(e) => setProposalForm({ ...proposalForm, description: e.target.value })}
+                  style={{
+                    borderColor: proposalForm.description.length >= 10 && proposalForm.description.length <= 500 ? '#00ff00' : 
+                                 proposalForm.description.length > 0 ? '#ff0000' : '#666'
+                  }}
                 />
-              </FormGroup>
-
-              <FormGroup>
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: proposalForm.description.length >= 10 && proposalForm.description.length <= 500 ? '#00ff00' : 
+                         proposalForm.description.length > 0 ? '#ff0000' : '#666',
+                  marginTop: '5px' 
+                }}>
+                  {proposalForm.description.length}/500 caracteres (mínimo 10)
+                </div>
+              </FormGroup>              <FormGroup>
                 <Label>🎯 Misión *</Label>
                 <TextArea
                   placeholder="¿Cuál es el objetivo principal de esta ONG?"
                   value={proposalForm.mission}
                   onChange={(e) => setProposalForm({ ...proposalForm, mission: e.target.value })}
+                  style={{
+                    borderColor: proposalForm.mission.length >= 5 ? '#00ff00' : 
+                                 proposalForm.mission.length > 0 ? '#ff0000' : '#666'
+                  }}
                 />
-              </FormGroup>
-
-              <FormGroup>
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: proposalForm.mission.length >= 5 ? '#00ff00' : 
+                         proposalForm.mission.length > 0 ? '#ff0000' : '#666',
+                  marginTop: '5px' 
+                }}>
+                  {proposalForm.mission.length} caracteres (mínimo 5)
+                </div>
+              </FormGroup>              <FormGroup>
                 <Label>💰 Dirección de Wallet *</Label>
                 <Input
                   type="text"
                   placeholder="0x1234567890abcdef1234567890abcdef12345678"
                   value={proposalForm.walletAddress}
                   onChange={(e) => setProposalForm({ ...proposalForm, walletAddress: e.target.value })}
+                  style={{
+                    borderColor: /^0x[a-fA-F0-9]{40}$/.test(proposalForm.walletAddress) ? '#00ff00' : 
+                                 proposalForm.walletAddress.length > 0 ? '#ff0000' : '#666'
+                  }}
                 />
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  ⚠️ Dirección donde la ONG recibirá las donaciones. Verifica que sea correcta.
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: /^0x[a-fA-F0-9]{40}$/.test(proposalForm.walletAddress) ? '#00ff00' : 
+                         proposalForm.walletAddress.length > 0 ? '#ff0000' : '#666',
+                  marginTop: '5px' 
+                }}>
+                  {/^0x[a-fA-F0-9]{40}$/.test(proposalForm.walletAddress) ? 
+                    '✅ Dirección válida' : 
+                    '⚠️ Dirección donde la ONG recibirá las donaciones. Debe ser una dirección Ethereum válida.'}
                 </div>
-              </FormGroup>
-
-              <FormGroup>
+              </FormGroup>              <FormGroup>
                 <Label>🌐 Sitio Web (opcional)</Label>
                 <Input
                   type="url"
                   placeholder="https://ejemplo.org"
                   value={proposalForm.website}
                   onChange={(e) => setProposalForm({ ...proposalForm, website: e.target.value })}
+                  style={{
+                    borderColor: !proposalForm.website || proposalForm.website === '' ? '#666' :
+                                 (() => { try { new URL(proposalForm.website); return '#00ff00'; } catch { return '#ff0000'; } })()
+                  }}
                 />
-              </FormGroup>
-
-              <div style={{ textAlign: 'center', marginTop: '30px' }}>
+                {proposalForm.website && proposalForm.website !== '' && (
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: (() => { try { new URL(proposalForm.website); return '#00ff00'; } catch { return '#ff0000'; } })(),
+                    marginTop: '5px' 
+                  }}>
+                    {(() => { try { new URL(proposalForm.website); return '✅ URL válida'; } catch { return '❌ URL inválida - debe incluir http:// o https://'; } })()}
+                  </div>
+                )}
+              </FormGroup>              <div style={{ textAlign: 'center', marginTop: '30px' }}>
                 <Button
                   onClick={handleProposeONG}
-                  disabled={loading || userParticipations < 10}
+                  disabled={loading || !isFormValid()}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  style={{
+                    opacity: loading || !isFormValid() ? 0.5 : 1,
+                    cursor: loading || !isFormValid() ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  {loading ? '⏳ Creando...' : '🚀 Crear Propuesta'}
+                  {loading ? '⏳ Creando...' : 
+                   userParticipations < 10 ? '🔒 Necesitas más participaciones' :
+                   !isFormValid() ? '❌ Completa todos los campos correctamente' :
+                   '🚀 Crear Propuesta'}
                 </Button>
               </div>
             </Section>
