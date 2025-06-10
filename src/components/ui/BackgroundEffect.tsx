@@ -13,7 +13,9 @@ const BackgroundContainer = styled.div`
   overflow: hidden;
 `
 
-const FloatingOrb = styled(motion.div)<{ color: string; size: number }>`
+const FloatingOrb = styled(motion.div).withConfig({
+  shouldForwardProp: (prop) => !['color', 'size'].includes(prop),
+})<{ color: string; size: number }>`
   position: absolute;
   width: ${props => props.size}px;
   height: ${props => props.size}px;

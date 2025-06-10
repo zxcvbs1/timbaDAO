@@ -17,7 +17,9 @@ const NeonBoard = styled.div`
   backdrop-filter: blur(10px);
 `
 
-const NeonDigit = styled(motion.div)<NeonDigitProps>`
+const NeonDigit = styled(motion.div).withConfig({
+  shouldForwardProp: (prop) => prop !== 'color',
+})<NeonDigitProps>`
   width: 80px;
   height: 100px;
   background: rgba(0, 0, 0, 0.9);

@@ -84,7 +84,9 @@ const ONGGrid = styled.div`
   margin: 0 auto;
 `
 
-const ONGCard = styled(motion.div)<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
+const ONGCard = styled(motion.div).withConfig({
+  shouldForwardProp: (prop) => prop !== 'color',
+})<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   background: rgba(0, 0, 0, 0.8);
   border: 3px solid ${props => 
     props.color === 'cyan' ? '#00ffff' : 
@@ -110,7 +112,9 @@ const ONGCard = styled(motion.div)<{ color: 'cyan' | 'pink' | 'green' | 'purple'
   }
 `
 
-const ONGIcon = styled.div<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
+const ONGIcon = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== 'color',
+})<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   font-size: 48px;
   text-align: center;
   margin-bottom: 20px;
@@ -122,7 +126,9 @@ const ONGIcon = styled.div<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'oran
     '#ff8000'});
 `
 
-const ONGName = styled.h3<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
+const ONGName = styled.h3.withConfig({
+  shouldForwardProp: (prop) => prop !== 'color',
+})<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   color: ${props => 
     props.color === 'cyan' ? '#00ffff' : 
     props.color === 'pink' ? '#ff00ff' : 
@@ -144,7 +150,9 @@ const ONGDescription = styled.p`
   text-align: center;
 `
 
-const ONGMission = styled.p<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
+const ONGMission = styled.p.withConfig({
+  shouldForwardProp: (prop) => prop !== 'color',
+})<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   color: ${props => 
     props.color === 'cyan' ? '#00ffff' : 
     props.color === 'pink' ? '#ff00ff' : 
@@ -157,7 +165,9 @@ const ONGMission = styled.p<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'ora
   opacity: 0.8;
 `
 
-const SelectButton = styled(motion.div)<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
+const SelectButton = styled(motion.div).withConfig({
+  shouldForwardProp: (prop) => prop !== 'color',
+})<{ color: 'cyan' | 'pink' | 'green' | 'purple' | 'orange' }>`
   position: absolute;
   bottom: -50px;
   left: 50%;

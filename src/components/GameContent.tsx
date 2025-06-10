@@ -210,6 +210,17 @@ function GameContentInner() {
 
   const handleSelectONG = (ong: ONG) => {
     setSelectedONG(ong)
+    
+    // 🎯 SCROLL AUTOMÁTICO AL ÁREA DE JUEGO
+    setTimeout(() => {
+      const gameArea = document.getElementById('game-area')
+      if (gameArea) {
+        gameArea.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        })
+      }
+    }, 100)
   }
 
   const handlePlay = async () => {
@@ -476,41 +487,48 @@ function GameContentInner() {
       <BackgroundEffect />
       
       <main className="min-h-screen relative">
+        {/* 🎮 BOTONES DE NAVEGACIÓN FIJOS */}
         <button
           onClick={handleBackToONGSelection}
-          className="absolute top-4 left-4 z-50 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-all duration-300 hover:scale-105"
+          className="fixed top-4 left-4 z-50 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-all duration-300 hover:scale-105"
         >
           ← Cambiar ONG
         </button>
         
         <button
           onClick={logout}
-          className="absolute top-4 right-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300"
+          className="fixed top-4 right-4 z-50 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300"
         >
           🔐 Desconectar
         </button>
 
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
-          <div className="text-center mb-8">
-            <div className="text-4xl mb-2">{selectedONG.icon}</div>
-            <h2 className="text-2xl font-bold text-cyan-400 mb-2">
-              Jugando para: {selectedONG.name}
-            </h2>
-            <p className="text-sm text-gray-300 max-w-md mb-2">
-              {selectedONG.mission}
-            </p>
-            <p className="text-xs text-gray-400">
-              Usuario: {userAddress.slice(0, 8)}...{userAddress.slice(-6)}
-            </p>
+        {/* 🏥 INFORMACIÓN DE ONG COMPACTA */}
+        <div className="bg-black/50 backdrop-blur-sm border-b border-cyan-400/30 py-4">
+          <div className="max-w-4xl mx-auto px-4 text-center">
+            <div className="flex items-center justify-center gap-4">
+              <div className="text-2xl">{selectedONG.icon}</div>
+              <div>
+                <h2 className="text-lg font-bold text-cyan-400">
+                  Jugando para: {selectedONG.name}
+                </h2>
+                <p className="text-xs text-gray-300">{selectedONG.mission}</p>
+                <p className="text-xs text-gray-400">
+                  Usuario: {userAddress.slice(0, 8)}...{userAddress.slice(-6)}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="w-full max-w-4xl">          <h1 className="text-6xl font-bold text-center mb-12 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
-            🎰 SUPER LOTERÍA 🎰
-          </h1>
+        {/* 🎮 ÁREA DE JUEGO PRINCIPAL - COMPLETAMENTE CENTRADA */}
+        <div className="w-full flex justify-center">
+          <div id="game-area" className="w-full max-w-4xl mx-auto px-4 py-8">
+            <h1 className="text-6xl font-bold text-center mb-12 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
+              🎰 SUPER LOTERÍA 🎰
+            </h1>
 
-          {/* 🚀 BOTONES DE NAVEGACIÓN RÁPIDA */}
-          <div className="flex justify-center gap-4 mb-8">
+            {/* 🚀 BOTONES DE NAVEGACIÓN RÁPIDA */}
+            <div className="flex justify-center gap-4 mb-8">
             <button
               onClick={handleShowResults}
               className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 hover:scale-105 flex items-center gap-2"
@@ -550,7 +568,7 @@ function GameContentInner() {
             />
           </div>
 
-          <div className="flex flex-col items-center gap-4">
+          <div className="w-full flex flex-col items-center gap-4">
             <PlayButton
               onClick={handlePlay}
               disabled={selectedNumbers.length !== 4 || isPlaying}
@@ -578,9 +596,18 @@ function GameContentInner() {
                   selectedONG={selectedONG}
                 />
               </div>
-            )}            {/* 🔧 PANEL DE INFORMACIÓN DE DESARROLLO */}
+            )}
+
+            <p className="text-center text-purple-300 text-sm mb-4">
+              💝 15% de tu jugada va para {selectedONG.name} {selectedONG.icon}
+              <br />
+              ¡Cada participación cuenta!
+            </p>
+
+            {/* 🔧 PANEL DE INFORMACIÓN DE DESARROLLO */}
             {process.env.NODE_ENV === 'development' && (
-              <div className="mt-8 max-w-lg">                <TestModeSelection 
+              <div className="mt-8 w-full max-w-lg">
+                <TestModeSelection 
                   testMode={testMode}
                   onTestModeChange={setTestMode}
                   testNumbers={testNumbers}
@@ -597,7 +624,7 @@ function GameContentInner() {
             )}
 
             {process.env.NODE_ENV === 'development' && (
-              <div className="mt-8 p-4 bg-gray-800 rounded-lg border border-gray-600">
+              <div className="mt-8 p-4 bg-gray-800 rounded-lg border border-gray-600 max-w-lg">
                 <h3 className="text-yellow-400 text-sm font-bold mb-2">ℹ️ INFORMACIÓN DE DESARROLLO</h3>
                 <div className="text-xs text-gray-400 space-y-1">
                   <p>• El modo de testing se configura ANTES de hacer clic en JUGAR</p>
@@ -621,6 +648,7 @@ function GameContentInner() {
               />
             </div>
           </div>
+        </div>
         </div>
       </main>
     </>

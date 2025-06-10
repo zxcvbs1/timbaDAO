@@ -144,7 +144,9 @@ const LoadMoreButton = styled(motion.button)`
   }
 `
 
-const UserFeedbackContainer = styled(motion.div)<{ won: boolean }>`
+const UserFeedbackContainer = styled(motion.div).withConfig({
+  shouldForwardProp: (prop) => prop !== 'won',
+})<{ won: boolean }>`
   background: ${props => props.won 
     ? 'linear-gradient(45deg, #00ff00, #ffff00)' 
     : 'linear-gradient(45deg, #ff4444, #ff8888)'};
@@ -206,7 +208,9 @@ const PositionLabels = styled.div`
   }
 `
 
-const UserNumberBall = styled.div<{ isMatch: boolean }>`
+const UserNumberBall = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== 'isMatch',
+})<{ isMatch: boolean }>`
   width: 35px;
   height: 35px;
   border-radius: 50%;
@@ -283,7 +287,23 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
     const initializeActivity = async () => {
       try {
         const response = await fetch('/api/game/latest-activity')
-        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
+        const responseText = await response.text()
+        if (!responseText.trim()) {
+          throw new Error('Empty response from server')
+        }
+        
+        let data
+        try {
+          data = JSON.parse(responseText)
+        } catch (jsonError) {
+          console.error('Invalid JSON response from latest-activity:', responseText)
+          throw jsonError
+        }
+        
         if (data.success) {
           const latestActivity = Math.max(data.lastGameTime || 0, data.lastDrawTime || 0)
           setLastKnownActivity(latestActivity)
@@ -305,7 +325,22 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
       try {
         // Verificar la última actividad del juego
         const response = await fetch('/api/game/latest-activity')
-        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
+        const responseText = await response.text()
+        if (!responseText.trim()) {
+          throw new Error('Empty response from server')
+        }
+        
+        let data
+        try {
+          data = JSON.parse(responseText)
+        } catch (jsonError) {
+          console.error('Invalid JSON response from latest-activity interval:', responseText)
+          throw jsonError
+        }
         
         if (data.success) {
           const latestActivity = Math.max(data.lastGameTime || 0, data.lastDrawTime || 0)
@@ -365,7 +400,24 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
       // 🔥 PASAR DIRECCIÓN DEL USUARIO A LA API
       console.log('🔍 [DrawResults] Loading results with userAddress:', testUserAddress);
       const response = await fetch(`/api/lottery/results?page=${currentPage}&limit=${maxResults}&userAddress=${testUserAddress}`)
-      const data = await response.json()
+      
+      // 🛡️ VERIFICAR QUE LA RESPUESTA SEA VÁLIDA
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const responseText = await response.text()
+      if (!responseText.trim()) {
+        throw new Error('Empty response from server')
+      }
+      
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (jsonError) {
+        console.error('Invalid JSON response:', responseText)
+        throw new Error('Invalid JSON response from server')
+      }
       
       console.log('📊 [DrawResults] API Response:', data);
       
@@ -384,28 +436,85 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
       console.error('Error loading draw results:', err)
       setError('Error de conexión al cargar resultados')
       
-      // Mock data para desarrollo
+      // Mock data para desarrollo - CON DIFERENTES FECHAS Y RESULTADOS
       const mockResults: DrawResult[] = [
+        // Resultado más reciente (debería aparecer primero) - PERDEDOR
+        {
+          id: '3',
+          drawNumber: 3,
+          drawDate: new Date('2025-06-10T15:30:00'), // Más reciente
+          winningNumbers: [9, 8, 7, 6],
+          totalBets: 89,
+          totalPrizePool: '8.9',
+          winners: [
+            {
+              address: '0x9999...1111',
+              prize: '4.5',
+              numbersMatched: 4
+            }
+          ],
+          userParticipation: userAddress ? {
+            participated: true,
+            selectedNumbers: [1, 2, 3, 4], // No coincide con ganadores
+            numbersMatched: 0,
+            betAmount: '0.1',
+            won: false, // PERDEDOR
+            prizeWon: '0'
+          } : undefined,
+          ongBeneficiary: {
+            name: 'Cruz Roja',
+            fundsReceived: '2.2'
+          }
+        },
+        // Resultado intermedio - GANADOR
+        {
+          id: '2',
+          drawNumber: 2,
+          drawDate: new Date('2025-06-10T12:15:00'), // Intermedio
+          winningNumbers: [1, 2, 3, 4],
+          totalBets: 124,
+          totalPrizePool: '12.4',
+          winners: [
+            {
+              address: userAddress || '0x5555...6666',
+              prize: '6.2',
+              numbersMatched: 4
+            }
+          ],
+          userParticipation: userAddress ? {
+            participated: true,
+            selectedNumbers: [1, 2, 3, 4], // Coincide perfectamente
+            numbersMatched: 4,
+            betAmount: '0.1',
+            won: true, // GANADOR
+            prizeWon: '6.2'
+          } : undefined,
+          ongBeneficiary: {
+            name: 'Fundación Niños',
+            fundsReceived: '3.1'
+          }
+        },
+        // Resultado más antiguo - GANADOR
         {
           id: '1',
           drawNumber: 1,
-          drawDate: new Date('2025-06-09T20:00:00'),
-          winningNumbers: [7, 3, 2, 1, 5],
+          drawDate: new Date('2025-06-09T20:00:00'), // Más antiguo
+          winningNumbers: [7, 3, 2, 1],
           totalBets: 156,
           totalPrizePool: '15.6',
           winners: [
             {
               address: '0x1234...5678',
               prize: '7.8',
-              numbersMatched: 5
+              numbersMatched: 4
             }
           ],
           userParticipation: userAddress ? {
             participated: true,
-            selectedNumbers: [7, 3, 9, 1, 4], // Usuario eligió estos números
-            numbersMatched: 3, // Acertó 3 números (7, 3, 1)
+            selectedNumbers: [7, 3, 9, 1], // Acertó 3 números (7, 3, 1)
+            numbersMatched: 3,
             betAmount: '0.1',
-            won: true,
+            won: true, // GANADOR
             prizeWon: '2.5'
           } : undefined,
           ongBeneficiary: {
@@ -462,8 +571,17 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
         <NoResults>
           📭 No hay resultados de sorteos disponibles
         </NoResults>
-      )}      <AnimatePresence>
-        {results.map((result, index) => {
+      )}      
+
+      <AnimatePresence>
+        {results
+          // 🔄 ORDENAR POR FECHA DESCENDENTE (MÁS RECIENTE PRIMERO)
+          .sort((a, b) => {
+            const dateA = new Date(a.drawDate).getTime()
+            const dateB = new Date(b.drawDate).getTime()
+            return dateB - dateA // Más reciente primero
+          })
+          .map((result, index) => {
           const userWinner = getUserPrize(result.winners)
           const userParticipated = result.userParticipation?.participated
           

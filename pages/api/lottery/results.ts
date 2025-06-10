@@ -35,6 +35,15 @@ export default async function handler(
       userAddress: normalizedUserAddress
     })
 
+    // 🔢 OBTENER EL TOTAL DE SORTEOS PARA CALCULAR NÚMEROS CORRECTOS
+    const totalCount = await prisma.gameSession.count({
+      where: {
+        winningNumbers: {
+          not: null // Solo juegos que ya fueron sorteados
+        }
+      }
+    })
+
     // 🎲 OBTENER SESIONES DE JUEGO COMPLETADAS (CON NÚMEROS GANADORES)
     const gameSessions = await prisma.gameSession.findMany({
       where: {
@@ -74,8 +83,15 @@ export default async function handler(
       isWinner: s.isWinner
     })));
     
+    // 🔢 CALCULAR EL NÚMERO DE SORTEO BASADO EN LA POSICIÓN TOTAL
+    const totalResults = results.length
+    
     const formattedResults = results.map((session, index) => {
       const winners = []
+      
+      // 🎯 CALCULAR DRAWUMBER CORRECTAMENTE (MÁS RECIENTE = NÚMERO MÁS ALTO)
+      // El primer resultado (index 0) debería tener el número más alto
+      const drawNumber = totalCount - (pageNumber * limitNumber) - index
       
       // Si es ganador, añadir a la lista
       if (session.isWinner && session.prizeAmount) {
@@ -155,7 +171,7 @@ export default async function handler(
 
       return {
         id: session.id,
-        drawNumber: index + 1,
+        drawNumber: drawNumber,
         drawDate: session.confirmedAt || session.playedAt,
         winningNumbers: session.winningNumbers?.split(',').map(Number).filter(n => n >= 0 && n <= 9) || [],
         totalBets: 1,

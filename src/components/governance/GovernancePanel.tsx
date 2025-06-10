@@ -42,7 +42,9 @@ const TabContainer = styled.div`
   gap: 20px;
 `
 
-const Tab = styled(motion.button)<{ active: boolean }>`
+const Tab = styled(motion.button).withConfig({
+  shouldForwardProp: (prop) => prop !== 'active',
+})<{ active: boolean }>`
   padding: 15px 30px;
   background: ${props => props.active ? 
     'linear-gradient(45deg, #ff00ff, #00ffff)' : 
@@ -150,7 +152,9 @@ const Select = styled.select`
   }
 `
 
-const Button = styled(motion.button)<{ variant?: 'primary' | 'secondary' }>`
+const Button = styled(motion.button).withConfig({
+  shouldForwardProp: (prop) => prop !== 'variant',
+})<{ variant?: 'primary' | 'secondary' }>`
   padding: 15px 30px;
   background: ${props => 
     props.variant === 'secondary' 
@@ -198,7 +202,9 @@ const ProposalTitle = styled.h3`
   margin: 0;
 `
 
-const ProposalStatus = styled.span<{ status: string }>`
+const ProposalStatus = styled.span.withConfig({
+  shouldForwardProp: (prop) => prop !== 'status',
+})<{ status: string }>`
   padding: 5px 15px;
   border-radius: 20px;
   font-size: 12px;
