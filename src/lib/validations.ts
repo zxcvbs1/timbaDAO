@@ -53,35 +53,69 @@ export function validateProposalEligibility(participations: number): ValidationR
   };
 }
 
-// 🎯 VALIDACIÓN DE NÚMEROS DE LOTERÍA
+// 🎯 VALIDACIÓN DE NÚMEROS DE LOTERÍA - NUEVO SISTEMA ÚNICO
 export function validateLotteryNumbers(numbers: number[]): ValidationResult {
   const config = defaultBlockchainConfig;
   
-  // Verificar cantidad de números
+  // Verificar cantidad de números (ahora solo 1)
   if (numbers.length !== config.numbersCount) {
     return {
       isValid: false,
-      message: `Debes seleccionar exactamente ${config.numbersCount} números`
+      message: `Debes seleccionar exactamente ${config.numbersCount} número`
     };
   }
 
-  // Verificar rango válido (0-9 para cada dígito)
-  for (const num of numbers) {
-    if (num < 0 || num > 9) {
-      return {
-        isValid: false,
-        message: `Cada dígito debe estar entre 0 y 9`
-      };
-    }
+  // Verificar rango válido (0-99 para número único)
+  const number = numbers[0];
+  if (number < 0 || number > config.numbersRange) {
+    return {
+      isValid: false,
+      message: `El número debe estar entre 0 y ${config.numbersRange}`
+    };
   }
-
-  // Note: We allow repeated digits in different positions (e.g., 5555, 4344, etc.)
-  // This is intentional for lottery-style games where each position is independent
 
   return {
     isValid: true,
-    message: 'Números válidos'
+    message: 'Número válido'
   };
+}
+
+// 🎯 VALIDACIÓN DE NÚMERO ÚNICO EN RONDA ACTIVA
+export async function validateNumberAvailability(
+  number: number, 
+  excludeUserId?: string
+): Promise<ValidationResult> {
+  try {
+    // Importar prisma dentro de la función para evitar dependencias circulares
+    const { prisma } = await import('./prisma');
+    
+    // Buscar si el número ya está tomado en juegos pendientes
+    const existingGame = await prisma.gameSession.findFirst({
+      where: {
+        winningNumbers: null, // Solo juegos pendientes
+        selectedNumbers: number.toString(), // Número como string
+        userId: excludeUserId ? { not: excludeUserId } : undefined
+      }
+    });
+
+    if (existingGame) {
+      return {
+        isValid: false,
+        message: `El número ${number.toString().padStart(2, '0')} ya fue seleccionado por otro jugador`
+      };
+    }
+
+    return {
+      isValid: true,
+      message: 'Número disponible'
+    };
+  } catch (error) {
+    console.error('Error validating number availability:', error);
+    return {
+      isValid: false,
+      message: 'Error verificando disponibilidad del número'
+    };
+  }
 }
 
 // 💰 VALIDACIÓN DE MONTO DE APUESTA

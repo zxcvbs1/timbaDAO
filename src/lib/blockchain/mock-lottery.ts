@@ -3,7 +3,7 @@
 
 import { prisma } from '../prisma';
 import { defaultBlockchainConfig } from './config';
-import { validateLotteryNumbers } from '../validations';
+import { validateLotteryNumbers, validateNumberAvailability } from '../validations';
 import type { 
   ILotteryContract, 
   GameResult, 
@@ -41,14 +41,12 @@ export class MockLotteryContract implements ILotteryContract {
       const mockBlockNumber = this.generateMockBlockNumber();
       
       // 💰 CALCULAR DISTRIBUCIÓN
-      const distribution = this.calculateFundDistribution(betAmount);
-
-      // 📝 CREAR SESIÓN DE JUEGO
+      const distribution = this.calculateFundDistribution(betAmount);      // 📝 CREAR SESIÓN DE JUEGO - NUEVO FORMATO
       const gameSession = await prisma.gameSession.create({
         data: {
           userId: normalizedUserId, // Use normalized userId
           selectedOngId,
-          selectedNumbers: selectedNumbers.join(','),
+          selectedNumbers: selectedNumbers[0].toString(), // Solo un número como string
           amountPlayed: betAmount,
           contributionPercentage: this.config.ongPercentage,
           contributionAmount: distribution.ongShare,
@@ -244,33 +242,31 @@ export class MockLotteryContract implements ILotteryContract {
       });
       
       console.log(`🎲 [MOCK] Found ${pendingGames.length} pending games`);
-      
-      // Buscar ganadores de manera simple
+        // Buscar ganadores de manera simple
       const winners = [];
       for (const game of pendingGames) {
-        const selectedNumbers = game.selectedNumbers.split(',').map(Number);
-        const winningNumbersArray = winningNumbers;
+        const selectedNumber = parseInt(game.selectedNumbers); // Solo un número
+        const winningNumber = winningNumbers[0]; // Solo un número ganador
         
-        // Verificar si hay coincidencia exacta (todos los números)
-        const isWinner = selectedNumbers.every((num, index) => num === winningNumbersArray[index]);
+        // Verificar si hay coincidencia exacta
+        const isWinner = selectedNumber === winningNumber;
         
         if (isWinner) {
           winners.push({
             userId: game.userId,
             gameId: game.id,
             prizeAmount: '1000000000000000000', // Premio fijo para testing
-            matchedNumbers: 4
+            matchedNumbers: 1 // Siempre 1 en el nuevo sistema
           });
         }
       }
       
       console.log(`👑 [MOCK] Found ${winners.length} winners`);
-      
-      // Actualizar los juegos de manera simple
+        // Actualizar los juegos de manera simple
       await prisma.gameSession.updateMany({
         where: { winningNumbers: null },
         data: {
-          winningNumbers: winningNumbers.join(','),
+          winningNumbers: winningNumbers[0].toString(), // Solo un número
           isWinner: false,
           confirmedAt: new Date()
         }
@@ -309,7 +305,6 @@ export class MockLotteryContract implements ILotteryContract {
   }
 
   // ===== MÉTODOS PRIVADOS =====
-
   private async validateBet(
     userId: string, 
     selectedNumbers: number[], 
@@ -320,6 +315,14 @@ export class MockLotteryContract implements ILotteryContract {
     const numbersValidation = validateLotteryNumbers(selectedNumbers);
     if (!numbersValidation.isValid) {
       throw new Error(numbersValidation.message);
+    }
+
+    // 🔥 NUEVO: Validar que el número no esté tomado
+    if (selectedNumbers.length === 1) {
+      const availabilityValidation = await validateNumberAvailability(selectedNumbers[0], userId);
+      if (!availabilityValidation.isValid) {
+        throw new Error(availabilityValidation.message);
+      }
     }
 
     // Validar que el usuario existe
@@ -367,13 +370,10 @@ export class MockLotteryContract implements ILotteryContract {
   private generateMockBlockNumber(): number {
     return Math.floor(Math.random() * 1000000) + 1000000;
   }
-
   private generateWinningNumbers(): number[] {
-    const numbers: number[] = [];
-    for (let i = 0; i < this.config.numbersCount; i++) {
-      numbers.push(Math.floor(Math.random() * (this.config.numbersRange + 1))); // 0 to numbersRange (0-9)
-    }
-    return numbers;
+    // Para el nuevo sistema, solo generamos UN número entre 0-99
+    const winningNumber = Math.floor(Math.random() * (this.config.numbersRange + 1));
+    return [winningNumber];
   }
 
   private async getPendingGames(force: boolean = false) {
@@ -395,38 +395,30 @@ export class MockLotteryContract implements ILotteryContract {
         selectedOng: { select: { id: true, name: true } }
       }
     });
-  }
-  private async findWinners(games: any[], winningNumbers: number[]) {
+  }  private async findWinners(games: any[], winningNumbers: number[]) {
     const winners = [];
+    const winningNumber = winningNumbers[0]; // Solo un número ganador
 
     for (const game of games) {
-      const selectedNumbers = game.selectedNumbers.split(',').map(Number);
+      const selectedNumber = parseInt(game.selectedNumbers); // Convertir string a número
       
-      // 🔥 CALCULAR COINCIDENCIAS CORRECTAMENTE: NÚMERO Y POSICIÓN DEBEN COINCIDIR
-      let matchedNumbers = 0;
-      const minLength = Math.min(selectedNumbers.length, winningNumbers.length);
+      console.log(`🎯 [MOCK] Game ${game.id}: Selected: ${selectedNumber}, Winning: ${winningNumber}`);
       
-      for (let i = 0; i < minLength; i++) {
-        if (selectedNumbers[i] === winningNumbers[i]) {
-          matchedNumbers++;
-        }
-      }
-      
-      console.log(`🎯 [MOCK] Game ${game.id}: Selected: [${selectedNumbers}], Winning: [${winningNumbers}], Matches: ${matchedNumbers}`);
-      
-      if (matchedNumbers >= this.config.minMatchesToWin) {
+      // 🔥 NUEVO SISTEMA: Solo gana si el número es exactamente igual
+      if (selectedNumber === winningNumber) {
         winners.push({
           userId: game.userId,
           gameId: game.id,
-          matchedNumbers,
+          matchedNumbers: 1, // Siempre 1 en el nuevo sistema
           prizeAmount: '0' // Se calculará después
         });
+        console.log(`🏆 [MOCK] WINNER FOUND! Game ${game.id} - Number: ${selectedNumber}`);
       }
     }
 
+    console.log(`👑 [MOCK] Total winners found: ${winners.length}`);
     return winners;
   }
-
   private async distributePrizes(winners: any[], totalPool: string, winningNumbers: number[]) {
     if (winners.length === 0) return;
 
@@ -436,7 +428,7 @@ export class MockLotteryContract implements ILotteryContract {
       await prisma.gameSession.update({
         where: { id: winner.gameId },
         data: {
-          winningNumbers: winningNumbers.join(','),
+          winningNumbers: winningNumbers[0].toString(), // Solo un número en el nuevo sistema
           isWinner: true,
           prizeAmount: prizePerWinner.toString(),
           confirmedAt: new Date()
@@ -447,7 +439,7 @@ export class MockLotteryContract implements ILotteryContract {
       const currentUser = await prisma.user.findUnique({
         where: { id: winner.userId },
         select: { totalWinnings: true, totalGamesWon: true }
-      });      if (currentUser) {
+      });if (currentUser) {
         const currentWinningsBigInt = BigInt(Math.floor(parseFloat(currentUser.totalWinnings)));
         const newTotalWinnings = (currentWinningsBigInt + prizePerWinner).toString();
         
@@ -463,7 +455,6 @@ export class MockLotteryContract implements ILotteryContract {
       winner.prizeAmount = prizePerWinner.toString();
     }
   }
-
   private async markLosingGames(allGames: any[], winners: any[], winningNumbers: number[]) {
     const winnerGameIds = new Set(winners.map(w => w.gameId));
     const losingGames = allGames.filter(game => !winnerGameIds.has(game.id));
@@ -472,7 +463,7 @@ export class MockLotteryContract implements ILotteryContract {
       await prisma.gameSession.update({
         where: { id: game.id },
         data: {
-          winningNumbers: winningNumbers.join(','),
+          winningNumbers: winningNumbers[0].toString(), // Solo un número en el nuevo sistema
           isWinner: false,
           confirmedAt: new Date()
         }

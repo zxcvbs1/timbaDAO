@@ -104,12 +104,11 @@ export class LotteryAPIClient {
     
     throw new Error('This should never be reached')
   }
-
   // Game API methods
-  async placeBet(userAddress: string, numbers: string, ongId: string, betAmount: number = 1000000000000000000): Promise<BetResult> {
+  async placeBet(userAddress: string, numbers: number[], ongId: string, betAmount: number = 1000000000000000000): Promise<BetResult> {
     try {
-      // Convert numbers string to array
-      const selectedNumbers = numbers.split('').map(n => parseInt(n))
+      // 🔥 NEW: Handle single number array for 0-99 range
+      const selectedNumbers = numbers // Already an array of numbers
       
       const response = await this.fetchWithRetry('/api/game/place-bet', {
         method: 'POST',
@@ -117,7 +116,7 @@ export class LotteryAPIClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: userAddress, // Using userAddress as userId for now
+          userId: userAddress,
           selectedNumbers: selectedNumbers,
           selectedOngId: ongId,
           betAmount: betAmount.toString()

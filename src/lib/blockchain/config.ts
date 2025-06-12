@@ -18,20 +18,25 @@ export const MANTLE_TESTNET = {
 };
 
 export const GAME_CONFIG = {
-  // 🎮 PARÁMETROS DEL JUEGO
-  numbersCount: 4,              // 4 dígitos por jugada (ej: 5555, 1234, 0987)
-  numbersRange: 9,              // Dígitos del 0 al 9
-  minMatchesToWin: 3,           // Mínimo 3 dígitos correctos para ganar
+  // 🎮 PARÁMETROS DEL JUEGO - NUEVO SISTEMA ÚNICO
+  numbersCount: 1,              // 1 número único por jugada (0-99)
+  numbersRange: 99,             // Números del 0 al 99
+  totalSlots: 100,              // 100 números únicos disponibles por ronda
+  minMatchesToWin: 1,           // Ganar con número exacto únicamente
   defaultBetAmount: '1000000000000000000', // 1 MNT en wei
   
-  // 💰 DISTRIBUCIÓN DE FONDOS
+  // 🎯 NUEVAS REGLAS DE PARTICIPACIÓN
+  minimumParticipants: 10,      // Mínimo 10 jugadores para hacer sorteo
+  optimalParticipants: 50,      // Óptimo: 50% de slots ocupados
+  maximumWaitTime: 24 * 60 * 60 * 1000, // 24 horas máximo de espera
+  
+  // 💰 DISTRIBUCIÓN DE FONDOS (Actualizada para mayor prize pool)
   ongPercentage: 15,            // 15% para ONG
   ownerPercentage: 5,           // 5% para owner
-  poolPercentage: 80,           // 80% para pool
-  
+  poolPercentage: 80,           // 80% para el ganador único  
   // 🕐 TIMING
   drawInterval: 86400,          // 24 horas en segundos
-  minPlayersForDraw: process.env.NODE_ENV === 'development' ? 1 : 3, // 1 en dev, 3 en prod
+  minPlayersForDraw: process.env.NODE_ENV === 'development' ? 3 : 10, // 3 en dev, 10 en prod
   
   // 🎯 PARTICIPACIONES MÍNIMAS (CLAVE DEL SISTEMA)
   participations: {

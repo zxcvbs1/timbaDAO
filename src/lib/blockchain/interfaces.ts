@@ -48,11 +48,10 @@ export interface VoteResult {
 }
 
 // ===== INTERFACE PRINCIPAL DEL CONTRATO DE LOTERÍA =====
-export interface ILotteryContract {
-  // 🎰 FUNCIONES DE JUEGO
+export interface ILotteryContract {  // 🎰 FUNCIONES DE JUEGO
   placeBet(
     userId: string,
-    selectedNumbers: number[], // [1, 15, 33, 42]
+    selectedNumbers: number[], // [42] - Solo un número en el rango 0-99
     selectedOngId: string,     // "unicef"
     betAmount: string          // "1000000000000000000" (1 MNT en wei)
   ): Promise<GameResult>;

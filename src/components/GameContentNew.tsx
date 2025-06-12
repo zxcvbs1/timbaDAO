@@ -6,13 +6,13 @@ import NumberGrid from '@/components/lottery/NumberGrid'
 import Ticket from '@/components/lottery/Ticket'
 import PlayButton from '@/components/lottery/PlayButton'
 import DrawResults, { DrawResultsRef } from '@/components/lottery/DrawResults'
-import TicketResults, { TicketResultsRef } from '@/components/lottery/TicketResults'
 import BackgroundEffect from '@/components/ui/BackgroundEffect'
 import ShareButton from '@/components/ui/ShareButton'
 import ONGSelector from '@/components/ong/ONGSelector'
 import StartScreen from '@/components/ui/StartScreen'
 import GovernancePanel from '@/components/governance/GovernancePanel'
-import TestingPanelUnified from '@/components/ui/TestingPanelUnified'
+import AdminTestingPanel from '@/components/ui/AdminTestingPanel'
+import TestModeSelection from '@/components/ui/TestModeSelection'
 import { AudioProvider, useAudio } from '@/contexts/AudioContext'
 import { apiClient, ONG, User } from '@/lib/api-client'
 import { usePrivy } from '@privy-io/react-auth'
@@ -28,23 +28,14 @@ function GameContentInner() {
   const [error, setError] = useState<string | null>(null)
   const [showGovernance, setShowGovernance] = useState(false)
   const [showResults, setShowResults] = useState(false)
-  const [showTesting, setShowTesting] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isExecutingDraw, setIsExecutingDraw] = useState(false)
   
-  // 🔢 TAKEN NUMBERS STATE (for main game)
-  const [takenNumbers, setTakenNumbers] = useState<number[]>([])
-  const [totalTaken, setTotalTaken] = useState(0)
-    // 🔄 AUTO-REFRESH STATES
+  // 🔄 AUTO-REFRESH STATES
   const [shouldRefreshResults, setShouldRefreshResults] = useState(false)
   const [lastGameTimestamp, setLastGameTimestamp] = useState<number>(0)
   const drawResultsRef = useRef<DrawResultsRef>(null)
-  const ticketResultsRef = useRef<TicketResultsRef>(null)
-  
-  // 🎫 PENDING TICKETS STATE (for real-time updates)
-  const [hasPendingTickets, setHasPendingTickets] = useState(false)
-  const [lastDrawCheck, setLastDrawCheck] = useState<number>(0)
   
   // 🎯 TEST MODE STATES
   const [testMode, setTestMode] = useState<'normal' | 'win' | 'lose' | 'specific'>('normal')
@@ -97,113 +88,16 @@ function GameContentInner() {
       setSelectedNumbers(null)
       setError(null)
       userCreationAttempted.current = false
-    }  }, [authenticated])
-  
-  // 🔢 Load taken numbers for main game
-  useEffect(() => {
-    const loadTakenNumbers = async () => {
-      try {
-        const response = await fetch('/api/game/taken-numbers')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            setTakenNumbers(data.takenNumbers)
-            setTotalTaken(data.totalTaken)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading taken numbers:', error)
-      }
     }
-
-    // Load on mount and refresh every 10 seconds if game is started
-    if (gameStarted) {
-      loadTakenNumbers()
-      const interval = setInterval(loadTakenNumbers, 10000)
-      return () => clearInterval(interval)
-    }  }, [gameStarted])
-  // 🎫 Real-time polling for users with pending tickets
-  useEffect(() => {
-    if (!authenticated || !currentUser || !gameStarted) return
-
-    const checkForPendingTicketsAndDraws = async () => {
-      try {
-        // Check if user has pending tickets
-        const ticketsResponse = await fetch(`/api/lottery/results?userAddress=${encodeURIComponent(currentUser.id)}&limit=10`)
-        if (ticketsResponse.ok) {
-          const ticketsData = await ticketsResponse.json()
-          if (ticketsData.success && ticketsData.results) {
-            // Check for pending tickets (tickets without winning numbers)
-            const pendingTickets = ticketsData.results.filter((ticket: any) => 
-              ticket.winningNumbers === null || ticket.winningNumbers === ''
-            )
-            
-            // Check for recently completed tickets (within last 30 seconds)
-            const recentlyCompleted = ticketsData.results.filter((ticket: any) => 
-              ticket.winningNumbers !== null && ticket.winningNumbers !== '' &&
-              ticket.confirmedAt && 
-              new Date(ticket.confirmedAt).getTime() > Date.now() - 30000 // Last 30 seconds
-            )
-            
-            const hasPending = pendingTickets.length > 0
-            setHasPendingTickets(hasPending)
-
-            console.log(`🎫 [GameContent] Pendientes: ${pendingTickets.length}, Recientes: ${recentlyCompleted.length}`)
-
-            // If user had pending tickets and now has recently completed ones, refresh everything
-            if (recentlyCompleted.length > 0 && (hasPlayed || hasPendingTickets)) {
-              console.log('🎉 [GameContent] ¡Sorteo completado detectado! Actualizando resultados...')
-              
-              // Refresh all components
-              drawResultsRef.current?.forceRefresh()
-              ticketResultsRef.current?.forceRefresh()
-              
-              // Update game state
-              setHasPlayed(true)
-              
-              // Check if user won in the recent draws
-              const userWon = recentlyCompleted.some((ticket: any) => ticket.isWinner)
-              if (userWon) {
-                console.log('🏆 [GameContent] ¡Usuario ganó!')
-                setWinningNumbers(recentlyCompleted[0].winningNumbers)
-                audioRef.current?.playWinSound()
-                setError('🎉 ¡Felicidades! ¡Has ganado el sorteo!')
-              } else {
-                console.log('💔 [GameContent] Usuario no ganó')
-                setWinningNumbers(recentlyCompleted[0].winningNumbers)
-                audioRef.current?.playLoseSound()
-                setError('😔 No ganaste esta vez, ¡pero puedes intentar de nuevo!')
-              }
-              
-              // Clear pending state
-              setIsPlaying(false)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error checking pending tickets:', error)
-      }
-    }
-
-    // Always check if game is started and user is authenticated
-    if (gameStarted && currentUser) {
-      checkForPendingTicketsAndDraws()
-      
-      // More frequent polling if user has pending tickets or has played recently
-      const pollInterval = (hasPlayed || hasPendingTickets) ? 3000 : 10000 // 3s vs 10s
-      const interval = setInterval(checkForPendingTicketsAndDraws, pollInterval)
-      return () => clearInterval(interval)
-    }
-  }, [authenticated, currentUser, gameStarted, hasPlayed, hasPendingTickets])
+  }, [authenticated])
 
   // 🔄 Auto-refresh results after games
   useEffect(() => {
-    if (shouldRefreshResults && (drawResultsRef.current?.forceRefresh || ticketResultsRef.current?.forceRefresh)) {
+    if (shouldRefreshResults && drawResultsRef.current?.forceRefresh) {
       console.log('🔄 [GameContent] Triggering results refresh after game completion')
       
       setTimeout(() => {
         drawResultsRef.current?.forceRefresh()
-        ticketResultsRef.current?.forceRefresh()
         setShouldRefreshResults(false)
       }, 1000)
     }
@@ -356,18 +250,76 @@ function GameContentInner() {
         setError(result.error || 'Error al realizar la apuesta')
         setIsPlaying(false)
         return
-      }      setBetResult(result)
-      setIsPlaying(false)
-      setHasPlayed(true)
-      setHasPendingTickets(true) // Force polling to start immediately
+      }
 
-      // 🎯 NEW: Solo mostrar que la apuesta fue exitosa, NO ejecutar sorteo automático
-      setError(`🎯 ¡Apuesta registrada! Tu número: ${selectedNumbers}. Esperando sorteo...`)
-      
-      // Refrescar resultados para mostrar la nueva apuesta pendiente
-      console.log('🎮 [GameContent] Bet placed, triggering results refresh and polling')
-      setLastGameTimestamp(Date.now())
-      setShouldRefreshResults(true)
+      setBetResult(result)
+
+      // Execute draw automatically with test modes
+      setTimeout(async () => {
+        try {
+          let winningNumbers: number[] | undefined
+
+          if (process.env.NODE_ENV === 'development') {
+            switch (testMode) {
+              case 'win':
+                winningNumbers = [selectedNumbers]
+                break
+              case 'lose':
+                winningNumbers = [selectedNumbers === 99 ? 0 : selectedNumbers + 1]
+                break
+              case 'specific':
+                if (testNumbers !== null) {
+                  winningNumbers = [testNumbers]
+                }
+                break
+              default:
+                winningNumbers = undefined
+            }
+          }
+
+          const requestBody = winningNumbers ? { winningNumbers } : {}
+          
+          const response = await fetch('/api/admin/execute-draw', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+          })
+
+          const drawResult = await response.json()
+          
+          if (drawResult.success && drawResult.result.winningNumbers) {
+            const finalWinningNumber = drawResult.result.winningNumbers[0]
+            setWinningNumbers(finalWinningNumber)
+            setIsPlaying(false)
+            setHasPlayed(true)
+            
+            console.log('🎮 [GameContent] Game completed, triggering results refresh')
+            setLastGameTimestamp(Date.now())
+            setShouldRefreshResults(true)
+            
+            if (selectedNumbers === finalWinningNumber) {
+              audioRef.current?.playWinSound()
+            } else {
+              audioRef.current?.playLoseSound()
+            }
+
+            if (process.env.NODE_ENV === 'development' && testMode !== 'normal') {
+              const modeText = testMode === 'win' ? 'VICTORIA FORZADA' : 
+                              testMode === 'lose' ? 'DERROTA FORZADA' : 
+                              'NÚMEROS ESPECÍFICOS'
+              setError(`🎯 ${modeText}: ${finalWinningNumber}. ${drawResult.result.winners.length} ganador(es)`)
+            }
+          } else {
+            setError(drawResult.error || 'Error al ejecutar el sorteo')
+            setIsPlaying(false)
+          }
+        } catch (err) {
+          setError('Error de conexión al ejecutar el sorteo')
+          setIsPlaying(false)
+        }
+      }, 3000)
       
     } catch (err) {
       setError('Error de conexión al realizar la apuesta')
@@ -417,6 +369,7 @@ function GameContentInner() {
   const handleHideResults = () => {
     setShowResults(false)
   }
+
   const handleExecuteDraw = async (specificNumbers?: number[]) => {
     if (process.env.NODE_ENV !== 'development') {
       setError('Solo disponible en modo desarrollo')
@@ -441,19 +394,6 @@ function GameContentInner() {
       
       if (data.success) {
         const winNumbers = data.result.winningNumbers[0]
-        
-        // 🎯 NEW: Update local game state if player has a pending bet
-        if (hasPlayed && winningNumbers === null) {
-          setWinningNumbers(winNumbers)
-          
-          // Play appropriate sound based on result
-          if (selectedNumbers === winNumbers) {
-            audioRef.current?.playWinSound()
-          } else {
-            audioRef.current?.playLoseSound()
-          }
-        }
-        
         setError(`✅ Sorteo ejecutado: ${winNumbers}. ${data.result.winners.length} ganador(es)`)
         
         console.log('🔧 [GameContent] Manual draw completed, triggering results refresh')
@@ -470,28 +410,12 @@ function GameContentInner() {
     }
   }
 
-  const handleShowTesting = () => {
-    setShowTesting(true)
-  }
-
-  const handleHideTesting = () => {
-    setShowTesting(false)
-  }
-
   // Show governance panel
   if (showGovernance) {
-    return (      <GovernancePanel
-        userAddress={userAddress}
-        onBack={handleHideGovernance}
-      />
-    )
-  }
-  // Show testing panel
-  if (showTesting) {
     return (
-      <TestingPanelUnified
-        userAddress={userAddress}
-        onBack={handleHideTesting}
+      <GovernancePanel
+        currentUser={currentUser}
+        onBack={handleHideGovernance}
       />
     )
   }
@@ -516,15 +440,11 @@ function GameContentInner() {
               fontFamily: 'Orbitron, monospace',
               fontWeight: 'bold',
               cursor: 'pointer'
-            }}          >
+            }}
+          >
             🔙 VOLVER
           </button>
-          <TicketResults 
-            ref={ticketResultsRef} 
-            userAddress={userAddress}
-            autoRefresh={true}
-            refreshInterval={5000}
-          />
+          <DrawResults ref={drawResultsRef} />
         </div>
       </div>
     )
@@ -532,11 +452,11 @@ function GameContentInner() {
 
   // Show start screen
   if (!gameStarted) {
-    return (      <StartScreen
+    return (
+      <StartScreen
         onStartGame={handleStartGame}
         onShowGovernance={handleShowGovernance}
         onShowResults={handleShowResults}
-        onShowTesting={handleShowTesting}
         currentUser={currentUser}
         onLogout={logout}
       />
@@ -563,13 +483,11 @@ function GameContentInner() {
               fontFamily: 'Orbitron, monospace',
               fontWeight: 'bold',
               cursor: 'pointer'
-            }}          >
+            }}
+          >
             🔙 INICIO
           </button>
-          <ONGSelector 
-            onSelectONG={handleSelectONG} 
-            onShowGovernance={handleShowGovernance}
-          />
+          <ONGSelector onSelectONG={handleSelectONG} />
         </div>
       </div>
     )
@@ -651,36 +569,26 @@ function GameContentInner() {
                 marginBottom: '20px'
               }}>
                 🎯 Selecciona tu número único (0-99)
-              </h2>              <NumberGrid
+              </h2>
+              <NumberGrid
                 onNumberSelect={handleSelectNumber}
                 selectedNumber={selectedNumbers}
                 disabled={isPlaying}
-                takenNumbers={takenNumbers}
-                roundProgress={{
-                  totalSlots: 100,
-                  takenSlots: totalTaken,
-                  timeRemaining: '∞'
-                }}
+                userId={userAddress}
               />
             </div>
           )}
 
           {/* Ticket display */}
           {selectedNumbers !== null && (
-            <div style={{ marginBottom: '30px' }}>              <Ticket
-                ticketId={`ticket-${Date.now()}`}
-                selectedNumber={selectedNumbers!}
-                selectedONG={selectedONG!}
-                betAmount="0.01"
-                contributionAmount="0.0015"
-                roundProgress={{
-                  totalSlots: 100,
-                  takenSlots: 0,
-                  minimumRequired: 3,
-                  timeRemaining: '∞'
-                }}
-                status={isPlaying ? 'active' : (hasPendingTickets ? 'pending' : 'waiting')}
-                onCancel={() => setSelectedNumbers(null)}
+            <div style={{ marginBottom: '30px' }}>
+              <Ticket
+                selectedNumber={selectedNumbers}
+                selectedONG={selectedONG}
+                isPlaying={isPlaying}
+                winningNumber={winningNumbers}
+                isWinner={selectedNumbers === winningNumbers}
+                betResult={betResult}
               />
             </div>
           )}
@@ -693,60 +601,10 @@ function GameContentInner() {
                 disabled={isPlaying}
               />
             </div>
-          )}          {/* 🎯 NEW: Pending Status Display */}
-          {hasPlayed && winningNumbers === null && (
-            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-              <div style={{
-                padding: '30px',
-                background: 'linear-gradient(45deg, #ffa500, #ffff00)',
-                borderRadius: '20px',
-                color: '#000',
-                fontFamily: 'Orbitron, monospace',
-                fontSize: '24px',
-                fontWeight: 'bold',
-                textAlign: 'center',
-                marginBottom: '20px',
-                border: '3px solid #ffa500',
-                boxShadow: '0 0 20px rgba(255, 165, 0, 0.5)'
-              }}>                ⏳ APUESTA PENDIENTE ⏳<br />
-                <div style={{ fontSize: '18px', marginTop: '10px' }}>
-                  Tu número: <span style={{ fontSize: '28px', color: '#ff6600' }}>{selectedNumbers}</span>
-                </div>
-                <div style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
-                  Esperando que el administrador ejecute el sorteo...
-                </div>
-                <div style={{ 
-                  fontSize: '12px', 
-                  marginTop: '8px', 
-                  color: '#00ff00',
-                  animation: 'pulse 2s infinite'
-                }}>
-                  🔄 Verificando resultados en tiempo real...
-                </div>
-              </div>
-
-              <button
-                onClick={handleNewGame}
-                style={{
-                  padding: '15px 30px',
-                  background: 'linear-gradient(45deg, #ff00ff, #00ffff)',
-                  border: 'none',
-                  borderRadius: '15px',
-                  color: '#000',
-                  fontFamily: 'Orbitron, monospace',
-                  fontWeight: 'bold',
-                  fontSize: '18px',
-                  cursor: 'pointer',
-                  marginRight: '10px'
-                }}
-              >
-                🎲 NUEVA APUESTA
-              </button>
-            </div>
           )}
 
-          {/* 🏆 Results display - only show when there's a winning number */}
-          {hasPlayed && winningNumbers !== null && (
+          {/* Results display */}
+          {hasPlayed && (
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
               {selectedNumbers === winningNumbers ? (
                 <div style={{
@@ -800,7 +658,7 @@ function GameContentInner() {
               </button>
 
               <ShareButton
-                selectedNumbers={selectedNumbers?.toString() || '0'}
+                selectedNumbers={selectedNumbers.toString()}
                 winningNumbers={winningNumbers?.toString() || ''}
                 selectedONG={selectedONG}
                 isWinner={selectedNumbers === winningNumbers}
@@ -819,7 +677,24 @@ function GameContentInner() {
               marginBottom: '20px',
               fontFamily: 'Orbitron, monospace'
             }}>
-              {error}            </div>
+              {error}
+            </div>
+          )}
+
+          {/* Development tools */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{ marginTop: '40px' }}>
+              <TestModeSelection
+                testMode={testMode}
+                testNumbers={testNumbers?.toString() || ''}
+                onTestModeChange={setTestMode}
+                onTestNumbersChange={(nums) => setTestNumbers(parseInt(nums) || null)}
+              />
+              <AdminTestingPanel
+                onExecuteDraw={handleExecuteDraw}
+                isExecuting={isExecutingDraw}
+              />
+            </div>
           )}
         </div>
       </div>

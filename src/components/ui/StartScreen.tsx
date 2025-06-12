@@ -107,10 +107,22 @@ const UserInfo = styled(motion.div)`
 `
 
 interface Props {
-  onStart: () => void
+  onStartGame: () => void
+  onShowGovernance?: () => void
+  onShowResults?: () => void
+  onShowTesting?: () => void
+  currentUser?: any
+  onLogout?: () => void
 }
 
-export default function StartScreen({ onStart }: Props) {
+export default function StartScreen({ 
+  onStartGame, 
+  onShowGovernance, 
+  onShowResults, 
+  onShowTesting,
+  currentUser,
+  onLogout 
+}: Props) {
   const [isLoading, setIsLoading] = useState(false)
   const { ready, authenticated, user, login } = usePrivy()
 
@@ -125,10 +137,9 @@ export default function StartScreen({ onStart }: Props) {
 
     console.log('User authenticated:', user?.id)
     setIsLoading(true)
-    
-    setTimeout(() => {
-      console.log('Calling onStart...') // ✅ Debug
-      onStart()
+      setTimeout(() => {
+      console.log('Calling onStartGame...') // ✅ Debug
+      onStartGame()
     }, 2000)
   }
 
@@ -173,8 +184,119 @@ export default function StartScreen({ onStart }: Props) {
         onClick={handleStart}
         disabled={isLoading}
       >
-        {isLoading ? '🎲 CARGANDO...' : '🚀 START GAME'}
-      </StartButton>
+        {isLoading ? '🎲 CARGANDO...' : '🚀 START GAME'}      </StartButton>
+
+      {/* Additional navigation buttons */}
+      {!isLoading && (
+        <motion.div
+          style={{
+            display: 'flex',
+            gap: '15px',
+            marginTop: '20px',
+            flexWrap: 'wrap',
+            justifyContent: 'center'
+          }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.8 }}
+        >
+          {onShowGovernance && (
+            <motion.button
+              onClick={onShowGovernance}
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(45deg, #ff00ff, #00ffff)',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#000',
+                fontFamily: 'Orbitron, monospace',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              🏛️ GOVERNANCE
+            </motion.button>          )}
+          
+          {onShowResults && (
+            <motion.button
+              onClick={onShowResults}
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(45deg, #ffff00, #ff00ff)',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#000',
+                fontFamily: 'Orbitron, monospace',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              📊 RESULTADOS
+            </motion.button>
+          )}
+
+          {/* Testing button - only in development */}
+          {process.env.NODE_ENV === 'development' && onShowTesting && (
+            <motion.button
+              onClick={onShowTesting}
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(45deg, #ff8800, #ffaa00)',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#000',
+                fontFamily: 'Orbitron, monospace',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              🔧 TESTING
+            </motion.button>
+          )}
+
+          {onLogout && currentUser && (
+            <motion.button
+              onClick={onLogout}
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(45deg, #666, #888)',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#fff',
+                fontFamily: 'Orbitron, monospace',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              🚪 LOGOUT
+            </motion.button>
+          )}
+        </motion.div>
+      )}
+
+      {/* User info */}
+      {currentUser && (
+        <UserInfo
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 1.0 }}
+        >
+          <div>👤 Conectado como: {currentUser.id?.slice(0, 8)}...</div>
+          <div className="wallet-address">{currentUser.id}</div>
+        </UserInfo>
+      )}
 
       {!isLoading && (
         <Features

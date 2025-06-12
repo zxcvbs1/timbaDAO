@@ -1,10 +1,32 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '@/lib/prisma'
 
+interface TicketResult {
+  id: string
+  ticketId: string
+  playerAddress: string
+  selectedNumber: number
+  betAmount: string
+  contributionAmount: string
+  selectedONG: {
+    id: string
+    name: string
+    logo?: string
+  }
+  playedAt: Date
+  winningNumber?: number
+  isWinner: boolean
+  prizeAmount?: string
+  drawId?: string
+  status: 'pending' | 'drawn' | 'expired'
+}
+
 interface LotteryResultsResponse {
   success: boolean
-  results?: any[]
+  results?: TicketResult[]
   hasMore?: boolean
+  totalResults?: number
+  userResults?: TicketResult[]
   message?: string
   error?: string
 }
@@ -19,6 +41,7 @@ export default async function handler(
       error: 'Method not allowed'
     })
   }
+
   try {
     const { page = '0', limit = '10', userAddress } = req.query
 
@@ -26,182 +49,102 @@ export default async function handler(
     const limitNumber = parseInt(limit as string)
     const offset = pageNumber * limitNumber
 
-    // Normalizar userAddress (puede ser string o array)
+    // Normalizar userAddress
     const normalizedUserAddress = Array.isArray(userAddress) ? userAddress[0] : userAddress;
 
-    console.log('🔍 [API] Fetching lottery results:', {
+    console.log('🎫 [API] Fetching lottery ticket results:', {
       page: pageNumber,
       limit: limitNumber,
       userAddress: normalizedUserAddress
-    })
-
-    // 🔢 OBTENER EL TOTAL DE SORTEOS PARA CALCULAR NÚMEROS CORRECTOS
-    const totalCount = await prisma.gameSession.count({
-      where: {
-        winningNumbers: {
-          not: null // Solo juegos que ya fueron sorteados
-        }
-      }
-    })
-
-    // 🎲 OBTENER SESIONES DE JUEGO COMPLETADAS (CON NÚMEROS GANADORES)
+    })    // 🎲 OBTENER SESIONES DE JUEGO COMPLETADAS Y PENDIENTES
     const gameSessions = await prisma.gameSession.findMany({
-      where: {
-        winningNumbers: {
-          not: null // Solo juegos que ya fueron sorteados
-        }
+      orderBy: {
+        playedAt: 'desc' // Más recientes primero
       },
+      skip: offset,
+      take: limitNumber,
       include: {
-        user: {
-          select: {
-            id: true
-          }
-        },
         selectedOng: {
           select: {
             id: true,
-            name: true
+            name: true,
+            icon: true
           }
-        }      },
-      orderBy: [
-        { confirmedAt: 'desc' }, // Primero por fecha de confirmación
-        { playedAt: 'desc' }     // Luego por fecha de juego como fallback
-      ],      skip: offset,
-      take: limitNumber + 1 // +1 para verificar si hay más
-    })
-
-    const hasMore = gameSessions.length > limitNumber
-    const results = gameSessions.slice(0, limitNumber)
-
-    // 🏆 FORMATEAR RESULTADOS (SIMPLIFICADO - CADA SESIÓN COMO SORTEO INDIVIDUAL)
-    console.log('🔍 [API] Processing results, userAddress:', normalizedUserAddress);
-    console.log('🔍 [API] Found sessions:', results.map(s => ({ 
-      id: s.id, 
-      userId: s.user.id,
-      selectedNumbers: s.selectedNumbers,
-      winningNumbers: s.winningNumbers,
-      isWinner: s.isWinner
-    })));
-    
-    // 🔢 CALCULAR EL NÚMERO DE SORTEO BASADO EN LA POSICIÓN TOTAL
-    const totalResults = results.length
-    
-    const formattedResults = results.map((session, index) => {
-      const winners = []
-      
-      // 🎯 CALCULAR DRAWUMBER CORRECTAMENTE (MÁS RECIENTE = NÚMERO MÁS ALTO)
-      // El primer resultado (index 0) debería tener el número más alto
-      const drawNumber = totalCount - (pageNumber * limitNumber) - index
-      
-      // Si es ganador, añadir a la lista
-      if (session.isWinner && session.prizeAmount) {
-        const selectedNumbers = session.selectedNumbers?.split(',').map(Number) || []
-        const winningNumbers = session.winningNumbers?.split(',').map(Number) || []
-        
-        // Calcular números coincidentes (solo para números de un dígito)
-        const validSelected = selectedNumbers.filter(n => n >= 0 && n <= 9)
-        const validWinning = winningNumbers.filter(n => n >= 0 && n <= 9)
-        const numbersMatched = validSelected.filter(num => validWinning.includes(num)).length
-        
-        if (numbersMatched >= 2) { // Solo mostrar si tiene al menos 2 coincidencias
-          winners.push({
-            address: session.user.id,
-            prize: session.prizeAmount,
-            numbersMatched,
-            betAmount: session.amountPlayed
-          })
+        },
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
         }
       }
+    })
 
-      // Calcular fondos para ONG (25% del total de apuestas)
-      const totalBetsAmount = parseFloat(session.amountPlayed)
-      const ongFunds = totalBetsAmount * 0.25      // 👤 INFORMACIÓN DE PARTICIPACIÓN DEL USUARIO
-      let userParticipation = null
+    // 🔢 OBTENER TOTAL PARA PAGINACIÓN
+    const totalCount = await prisma.gameSession.count()
+
+    // 🎫 CONVERTIR A FORMATO DE TICKETS
+    const ticketResults: TicketResult[] = gameSessions.map((session) => {
+      const selectedNumber = parseInt(session.selectedNumbers)
+      const winningNumber = session.winningNumbers ? parseInt(session.winningNumbers) : undefined
+      const isWinner = session.isWinner || false
       
-      // Normalizar userAddress (puede ser string o array)
-      const normalizedUserAddress = Array.isArray(userAddress) ? userAddress[0] : userAddress;
-      
-      console.log('🔍 [API] Checking user participation:', {
-        userAddress: normalizedUserAddress,
-        sessionUserId: session.user.id,
-        normalizedUserAddress: normalizedUserAddress?.toLowerCase(),
-        normalizedSessionUserId: session.user.id?.toLowerCase()
-      });
-      
-      // Comparación más flexible - comparar tanto exacto como normalizado
-      const isUserSession = normalizedUserAddress && (
-        session.user.id === normalizedUserAddress ||
-        session.user.id?.toLowerCase() === normalizedUserAddress?.toLowerCase()
-      );
-        if (isUserSession) {
-        const userSelectedNumbers = session.selectedNumbers?.split(',').map(Number).filter(n => n >= 0 && n <= 9) || []
-        const winningNumbers = session.winningNumbers?.split(',').map(Number).filter(n => n >= 0 && n <= 9) || []
-        
-        // 🔥 CALCULAR COINCIDENCIAS CORRECTAMENTE: NÚMERO Y POSICIÓN DEBEN COINCIDIR
-        let userNumbersMatched = 0;
-        const minLength = Math.min(userSelectedNumbers.length, winningNumbers.length);
-        
-        for (let i = 0; i < minLength; i++) {
-          if (userSelectedNumbers[i] === winningNumbers[i]) {
-            userNumbersMatched++;
-          }
-        }
-        
-        console.log('✅ [API] User participated!', {
-          selectedNumbers: userSelectedNumbers,
-          winningNumbers,
-          numbersMatched: userNumbersMatched,
-          comparison: userSelectedNumbers.map((num, idx) => ({
-            position: idx,
-            selected: num,
-            winning: winningNumbers[idx],
-            match: num === winningNumbers[idx]
-          }))
-        });
-        
-        userParticipation = {
-          participated: true,
-          selectedNumbers: userSelectedNumbers,
-          numbersMatched: userNumbersMatched,
-          betAmount: session.amountPlayed,
-          won: session.isWinner && userNumbersMatched >= 2,
-          prizeWon: session.isWinner ? session.prizeAmount : '0'
+      // Determinar status
+      let status: 'pending' | 'drawn' | 'expired' = 'pending'
+      if (session.winningNumbers !== null) {
+        status = 'drawn'
+      } else {
+        // Verificar si ha expirado (más de 24 horas)
+        const hoursSincePlay = (Date.now() - session.playedAt.getTime()) / (1000 * 60 * 60)
+        if (hoursSincePlay > 24) {
+          status = 'expired'
         }
       }
 
       return {
         id: session.id,
-        drawNumber: drawNumber,
-        drawDate: session.confirmedAt || session.playedAt,
-        winningNumbers: session.winningNumbers?.split(',').map(Number).filter(n => n >= 0 && n <= 9) || [],
-        totalBets: 1,
-        totalPrizePool: (parseFloat(session.amountPlayed) * 0.8).toString(), // 80% va al pozo
-        winners: winners,
-        userParticipation, // 🔥 NUEVA INFORMACIÓN DEL USUARIO
-        ongBeneficiary: session.selectedOng ? {
+        ticketId: `TICKET-${session.id.slice(-8).toUpperCase()}`,
+        playerAddress: session.userId,
+        selectedNumber,
+        betAmount: session.amountPlayed,
+        contributionAmount: session.contributionAmount,        selectedONG: {
+          id: session.selectedOng.id,
           name: session.selectedOng.name,
-          fundsReceived: ongFunds.toFixed(4)
-        } : undefined
+          logo: session.selectedOng.icon
+        },
+        playedAt: session.playedAt,
+        winningNumber,
+        isWinner,
+        prizeAmount: session.prizeAmount || undefined,
+        drawId: session.winningNumbers ? `DRAW-${session.confirmedAt?.getTime() || Date.now()}` : undefined,
+        status
       }
     })
 
-    console.log('✅ [API] Lottery results fetched successfully:', {
-      resultsCount: formattedResults.length,
-      hasMore
-    })
+    // 🎯 FILTRAR RESULTADOS DEL USUARIO SI SE PROPORCIONA UNA DIRECCIÓN
+    const userResults = normalizedUserAddress 
+      ? ticketResults.filter(ticket => 
+          ticket.playerAddress.toLowerCase() === normalizedUserAddress.toLowerCase()
+        )
+      : []
+
+    const hasMore = (offset + limitNumber) < totalCount
+
+    console.log(`✅ [API] Returning ${ticketResults.length} ticket results (${userResults.length} for user)`)
 
     return res.status(200).json({
       success: true,
-      results: formattedResults,
-      hasMore
+      results: ticketResults,
+      userResults,
+      hasMore,
+      totalResults: totalCount
     })
 
   } catch (error) {
     console.error('❌ [API] Error fetching lottery results:', error)
-    
     return res.status(500).json({
       success: false,
-      error: 'Failed to fetch lottery results'
+      error: 'Error interno del servidor al obtener resultados'
     })
   }
 }
