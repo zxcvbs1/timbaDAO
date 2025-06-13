@@ -19,6 +19,7 @@ export interface DrawResult {
   totalPrizePool: string;
   drawId: string;
   distributionTx?: string; // TX de distribución de premios
+  totalTickets?: number; // Número total de tickets en el sorteo
 }
 
 export interface Winner {
@@ -27,6 +28,10 @@ export interface Winner {
   prizeAmount: string;
   matchedNumbers: number;
   walletAddress?: string;
+  // Propiedades adicionales para eventos en tiempo real
+  ticketId: string;
+  numbers: number[];
+  player: string; // Alias para userId/walletAddress
 }
 
 export interface ProposalResult {

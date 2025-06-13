@@ -16,6 +16,7 @@ import TestingPanelUnified from '@/components/ui/TestingPanelUnified'
 import { AudioProvider, useAudio } from '@/contexts/AudioContext'
 import { apiClient, ONG, User } from '@/lib/api-client'
 import { usePrivy } from '@privy-io/react-auth'
+import { useLotteryEvents } from '@/hooks/useLotteryEvents'
 
 function GameContentInner() {
   const [gameStarted, setGameStarted] = useState(false)
@@ -50,7 +51,147 @@ function GameContentInner() {
   const [testMode, setTestMode] = useState<'normal' | 'win' | 'lose' | 'specific'>('normal')
   const [testNumbers, setTestNumbers] = useState<number | null>(null)
   
+  // 🎯 REAL-TIME EVENTS STATE
+  const [isEventConnected, setIsEventConnected] = useState(false)
+  const [lastEventMessage, setLastEventMessage] = useState<string>('')
+  const [currentDrawId, setCurrentDrawId] = useState<string | null>(null) // Nuevo: tracking de sorteo actual
+  const [userTicketDrawId, setUserTicketDrawId] = useState<string | null>(null) // Nuevo: ID del sorteo del ticket del usuario
+  
   const audioRef = useAudio()
+  
+  // 🔢 Función para cargar números tomados
+  const loadTakenNumbers = async () => {
+    try {
+      const response = await fetch('/api/game/taken-numbers')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setTakenNumbers(data.takenNumbers)
+          setTotalTaken(data.totalTaken)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading taken numbers:', error)
+    }
+  }
+  
+  // 🎯 REAL-TIME EVENTS HANDLERS
+  const lotteryEventHandlers = {
+    onDrawStarted: (event: any) => {
+      console.log('🎲 [GameContent] Draw started:', event)
+      setLastEventMessage(`🎲 Sorteo iniciado: ${event.drawId}`)
+      setCurrentDrawId(event.drawId) // Trackear el sorteo actual
+      setIsExecutingDraw(true)
+      audioRef.current?.playSlotSound()
+    },
+    
+    onDrawCompleted: (event: any) => {
+      console.log('✅ [GameContent] Draw completed:', event)
+      setLastEventMessage(`✅ Sorteo ${event.drawId} completado! Números: ${event.winningNumbers}`)
+      setIsExecutingDraw(false)
+      setWinningNumbers(parseInt(event.winningNumbers))
+      
+      // Solo procesar si es el sorteo relevante para el usuario
+      if (hasPendingTickets && event.drawId === currentDrawId) {
+        console.log('🎫 [GameContent] Processing draw completion for user ticket')
+        // Los resultados específicos del usuario llegaran via onTicketResult
+      }
+      
+      // Refrescar resultados automáticamente
+      setTimeout(() => {
+        drawResultsRef.current?.forceRefresh()
+        ticketResultsRef.current?.forceRefresh()
+        setShouldRefreshResults(true)
+      }, 1000)
+      
+      audioRef.current?.startBackgroundMusic()
+    },
+    
+    onNumbersDrawn: (event: any) => {
+      console.log('🎯 [GameContent] Numbers drawn:', event)
+      setLastEventMessage(`🎯 Sorteo ${event.drawId}: Números sorteados: ${event.numbers}`)
+      setWinningNumbers(parseInt(event.numbers))
+    },
+    
+    onTicketResult: (event: any) => {
+      console.log('🎫 [GameContent] Ticket result received!:', event)
+      console.log('🎫 [GameContent] Current user:', currentUser?.id)
+      console.log('🎫 [GameContent] Event user address:', event.userAddress)
+      console.log('🎫 [GameContent] Event draw ID:', event.drawId)
+      console.log('🎫 [GameContent] Current draw ID:', currentDrawId)
+      console.log('🎫 [GameContent] User ticket draw ID:', userTicketDrawId)
+      console.log('🎫 [GameContent] Match?:', currentUser && event.userAddress === currentUser.id)
+      
+      const isCurrentUser = currentUser && event.userAddress === currentUser.id
+      const isRelevantDraw = event.drawId === currentDrawId || event.drawId === userTicketDrawId
+      
+      if (isCurrentUser && isRelevantDraw) {
+        console.log('🎯 [GameContent] ✅ PROCESSING ticket result for current user:', {
+          ticketId: event.ticketId,
+          isWinner: event.isWinner,
+          selectedNumbers,
+          drawnNumbers: event.numbers,
+          drawId: event.drawId
+        })
+        
+        // Actualizar estado del juego
+        setHasPendingTickets(false)
+        setWinningNumbers(parseInt(event.numbers))
+        setUserTicketDrawId(null) // Reset del tracking
+        
+        // Mostrar resultado y reproducir sonido
+        const resultMessage = event.isWinner 
+          ? '🎉 ¡GANASTE! ¡Felicidades!' 
+          : '😔 No ganaste esta vez, ¡sigue intentando!'
+          
+        setLastEventMessage(`${resultMessage} (Sorteo: ${event.drawId})`)
+        setError(resultMessage)
+        
+        if (event.isWinner) {
+          audioRef.current?.playWinSound()
+        } else {
+          audioRef.current?.playLoseSound()
+        }
+        
+        // Refrescar resultados inmediatamente
+        setTimeout(() => {
+          drawResultsRef.current?.forceRefresh()
+          ticketResultsRef.current?.forceRefresh()
+        }, 500)
+      } else {
+        console.log('🎫 [GameContent] ❌ NOT for current user or irrelevant draw, ignoring:', {
+          isCurrentUser,
+          isRelevantDraw,
+          eventDrawId: event.drawId,
+          currentDrawId,
+          userTicketDrawId
+        })
+      }
+    },
+    
+    onNewTicket: (event: any) => {
+      console.log('🆕 [GameContent] New ticket:', event)
+      // Actualizar números tomados cuando alguien más juega
+      loadTakenNumbers()
+    },
+    
+    onConnectionChange: (connected: boolean) => {
+      setIsEventConnected(connected)
+      setLastEventMessage(
+        connected 
+          ? '🔌 Conectado a eventos en tiempo real' 
+          : '⚠️ Desconectado de eventos en tiempo real'
+      )
+    },
+    
+    onError: (error: string) => {
+      console.error('❌ [GameContent] Event error:', error)
+      setLastEventMessage(`❌ Error: ${error}`)
+    }
+  }
+  
+  // 🎯 INICIALIZAR EVENTOS EN TIEMPO REAL
+  const { isConnected: eventStreamConnected } = useLotteryEvents(lotteryEventHandlers)
   
   // 🔐 Privy authentication
   const { ready, authenticated, user, login, logout } = usePrivy()
@@ -101,27 +242,13 @@ function GameContentInner() {
   
   // 🔢 Load taken numbers for main game
   useEffect(() => {
-    const loadTakenNumbers = async () => {
-      try {
-        const response = await fetch('/api/game/taken-numbers')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            setTakenNumbers(data.takenNumbers)
-            setTotalTaken(data.totalTaken)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading taken numbers:', error)
-      }
-    }
-
     // Load on mount and refresh every 10 seconds if game is started
     if (gameStarted) {
       loadTakenNumbers()
       const interval = setInterval(loadTakenNumbers, 10000)
       return () => clearInterval(interval)
-    }  }, [gameStarted])
+    }
+  }, [gameStarted])
   // 🎫 Real-time polling for users with pending tickets
   useEffect(() => {
     if (!authenticated || !currentUser || !gameStarted) return
@@ -636,6 +763,53 @@ function GameContentInner() {
           }}>
             Apoyando a: <span style={{ color: '#ffff00' }}>{selectedONG.name}</span>
           </p>
+          
+          {/* Real-time connection status */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '15px',
+            fontSize: '14px',
+            fontFamily: 'Orbitron, monospace'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '8px 16px',
+              background: isEventConnected 
+                ? 'rgba(0, 255, 0, 0.1)' 
+                : 'rgba(255, 165, 0, 0.1)',
+              border: `1px solid ${isEventConnected ? '#00ff00' : '#ffa500'}`,
+              borderRadius: '20px',
+              color: isEventConnected ? '#00ff00' : '#ffa500'
+            }}>
+              <span style={{ 
+                marginRight: '8px',
+                animation: isEventConnected ? 'none' : 'pulse 2s infinite'
+              }}>
+                {isEventConnected ? '🟢' : '🟡'}
+              </span>
+              {isEventConnected ? 'Eventos en tiempo real' : 'Conectando eventos...'}
+            </div>
+          </div>
+          
+          {/* Event message */}
+          {lastEventMessage && (
+            <div style={{
+              marginTop: '10px',
+              padding: '8px 16px',
+              background: 'rgba(0, 255, 255, 0.1)',
+              border: '1px solid rgba(0, 255, 255, 0.3)',
+              borderRadius: '10px',
+              color: '#00ffff',
+              fontSize: '12px',
+              fontFamily: 'Orbitron, monospace',
+              textAlign: 'center'
+            }}>
+              {lastEventMessage}
+            </div>
+          )}
         </div>
 
         {/* Game area */}
@@ -693,12 +867,14 @@ function GameContentInner() {
                 disabled={isPlaying}
               />
             </div>
-          )}          {/* 🎯 NEW: Pending Status Display */}
+          )}          {/* 🎯 ESTADO DEL TICKET - Mostrar diferentes estados del sorteo */}
           {hasPlayed && winningNumbers === null && (
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
               <div style={{
                 padding: '30px',
-                background: 'linear-gradient(45deg, #ffa500, #ffff00)',
+                background: isExecutingDraw 
+                  ? 'linear-gradient(45deg, #ff6600, #ffaa00)' 
+                  : 'linear-gradient(45deg, #ffa500, #ffff00)',
                 borderRadius: '20px',
                 color: '#000',
                 fontFamily: 'Orbitron, monospace',
@@ -706,37 +882,69 @@ function GameContentInner() {
                 fontWeight: 'bold',
                 textAlign: 'center',
                 marginBottom: '20px',
-                border: '3px solid #ffa500',
-                boxShadow: '0 0 20px rgba(255, 165, 0, 0.5)'
-              }}>                ⏳ APUESTA PENDIENTE ⏳<br />
-                <div style={{ fontSize: '18px', marginTop: '10px' }}>
-                  Tu número: <span style={{ fontSize: '28px', color: '#ff6600' }}>{selectedNumbers}</span>
-                </div>
-                <div style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
-                  Esperando que el administrador ejecute el sorteo...
-                </div>
-                <div style={{ 
-                  fontSize: '12px', 
-                  marginTop: '8px', 
-                  color: '#00ff00',
-                  animation: 'pulse 2s infinite'
-                }}>
-                  🔄 Verificando resultados en tiempo real...
-                </div>
+                border: `3px solid ${isExecutingDraw ? '#ff6600' : '#ffa500'}`,
+                boxShadow: `0 0 20px ${isExecutingDraw ? 'rgba(255, 102, 0, 0.5)' : 'rgba(255, 165, 0, 0.5)'}`,
+                transform: isExecutingDraw ? 'scale(1.02)' : 'scale(1)',
+                transition: 'all 0.3s ease'
+              }}>
+                {isExecutingDraw ? (
+                  <>
+                    🎲 SORTEO EN PROGRESO 🎲<br />
+                    <div style={{ fontSize: '18px', marginTop: '10px' }}>
+                      Ejecutando sorteo para tu número: <span style={{ fontSize: '28px', color: '#ff0000' }}>{selectedNumbers}</span>
+                    </div>
+                    <div style={{ fontSize: '14px', marginTop: '10px', color: '#444' }}>
+                      ¡Los números se están sorteando ahora mismo!
+                    </div>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      marginTop: '8px', 
+                      color: '#ff0000',
+                      animation: 'pulse 1s infinite'
+                    }}>
+                      🎯 Procesando resultados...
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    ⏳ APUESTA PENDIENTE ⏳<br />
+                    <div style={{ fontSize: '18px', marginTop: '10px' }}>
+                      Tu número: <span style={{ fontSize: '28px', color: '#ff6600' }}>{selectedNumbers}</span>
+                    </div>
+                    <div style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
+                      Esperando que el administrador ejecute el sorteo...
+                    </div>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      marginTop: '8px', 
+                      color: isEventConnected ? '#00ff00' : '#ff8800',
+                      animation: 'pulse 2s infinite'
+                    }}>
+                      {isEventConnected 
+                        ? '🔄 Conectado - Recibirás notificación automática' 
+                        : '⚠️ Desconectado - Verificando manualmente...'
+                      }
+                    </div>
+                  </>
+                )}
               </div>
 
               <button
                 onClick={handleNewGame}
+                disabled={isExecutingDraw}
                 style={{
                   padding: '15px 30px',
-                  background: 'linear-gradient(45deg, #ff00ff, #00ffff)',
+                  background: isExecutingDraw 
+                    ? 'linear-gradient(45deg, #666, #999)'
+                    : 'linear-gradient(45deg, #ff00ff, #00ffff)',
                   border: 'none',
                   borderRadius: '15px',
-                  color: '#000',
+                  color: isExecutingDraw ? '#ccc' : '#000',
                   fontFamily: 'Orbitron, monospace',
                   fontWeight: 'bold',
                   fontSize: '18px',
-                  cursor: 'pointer',
+                  cursor: isExecutingDraw ? 'not-allowed' : 'pointer',
+                  opacity: isExecutingDraw ? 0.5 : 1,
                   marginRight: '10px'
                 }}
               >

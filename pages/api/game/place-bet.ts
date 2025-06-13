@@ -5,6 +5,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { MockLotteryContract } from '../../../src/lib/blockchain/mock-lottery';
 import { prisma } from '../../../src/lib/prisma';
 import { validateLotteryNumbers, validateBetAmount } from '../../../src/lib/validations';
+import { lotteryEvents, LOTTERY_EVENTS } from '../../../src/lib/event-emitter';
 
 interface PlaceBetRequest {
   userId: string;
@@ -153,6 +154,16 @@ export default async function handler(
     console.log('✅ [API] Bet placed successfully:', {
       gameId: result.gameId,
       transactionHash: result.transactionHash
+    });
+
+    // 🎯 EMITIR EVENTO DE NUEVO TICKET
+    lotteryEvents.emit(LOTTERY_EVENTS.NEW_TICKET, {
+      ticketId: result.gameId,
+      userAddress: userId,
+      numbers: selectedNumbers.join(''),
+      selectedOngId,
+      betAmount: finalBetAmount,
+      timestamp: new Date().toISOString()
     });
 
     // 🎯 RESPUESTA EXITOSA

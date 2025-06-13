@@ -5,6 +5,7 @@ import styled from 'styled-components'
 import TicketResults, { TicketResultsRef } from '@/components/lottery/TicketResults'
 import NumberGrid from '@/components/lottery/NumberGrid'
 import BackgroundEffect from '@/components/ui/BackgroundEffect'
+import SSEDebugPanel from '@/components/ui/SSEDebugPanel'
 
 const Container = styled.div`
   min-height: 100vh;
@@ -635,6 +636,11 @@ export default function TestingPanel({ onBack, userAddress }: Props) {
               showHeader={false}
             />
           </TestingSection>
+
+          {/* SSE Debugging Section */}
+          <div style={{ marginTop: '20px' }}>
+            <SSEDebugPanel />
+          </div>
         </div>
       </TestingGrid>
 

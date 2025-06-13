@@ -256,7 +256,12 @@ export class MockLotteryContract implements ILotteryContract {
             userId: game.userId,
             gameId: game.id,
             prizeAmount: '1000000000000000000', // Premio fijo para testing
-            matchedNumbers: 1 // Siempre 1 en el nuevo sistema
+            matchedNumbers: 1, // Siempre 1 en el nuevo sistema
+            walletAddress: game.userId, // Usar userId como wallet address
+            // Propiedades adicionales para eventos en tiempo real
+            ticketId: game.id,
+            numbers: [selectedNumber],
+            player: game.userId
           });
         }
       }
@@ -290,7 +295,8 @@ export class MockLotteryContract implements ILotteryContract {
         winners,
         transactionHash: this.generateMockTxHash(),
         totalPrizePool: (BigInt(winners.length) * BigInt('1000000000000000000')).toString(),
-        drawId
+        drawId,
+        totalTickets: pendingGames.length
       };
       
     } catch (error: any) {
@@ -376,7 +382,7 @@ export class MockLotteryContract implements ILotteryContract {
     return [winningNumber];
   }
 
-  private async getPendingGames(force: boolean = false) {
+  public async getPendingGames(force: boolean = false) {
     const whereCondition: any = {
       winningNumbers: null
     };
