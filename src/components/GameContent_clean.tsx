@@ -1,10 +1,11 @@
 // 🔥 NEW: Updated GameContent for single number (0-99) lottery system
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import NeonDisplay from '@/components/lottery/NeonDisplay'
 import NumberGrid from '@/components/lottery/NumberGrid'
 import Ticket from '@/components/lottery/Ticket'
 import PlayButton from '@/components/lottery/PlayButton'
-import { DrawResultsRef } from '@/components/lottery/DrawResults'
+import DrawResults, { DrawResultsRef } from '@/components/lottery/DrawResults'
 import TicketResults, { TicketResultsRef } from '@/components/lottery/TicketResults'
 import BackgroundEffect from '@/components/ui/BackgroundEffect'
 import ShareButton from '@/components/ui/ShareButton'
@@ -17,30 +18,38 @@ import { apiClient, ONG, User } from '@/lib/api-client'
 import { usePrivy } from '@privy-io/react-auth'
 
 function GameContentInner() {
-  const [gameStarted, setGameStarted] = useState(false);
-  const [selectedONG, setSelectedONG] = useState<ONG | null>(null);
-  const [selectedNumbers, setSelectedNumbers] = useState<number | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [winningNumbers, setWinningNumbers] = useState<number | null>(null);
-  const [hasPlayed, setHasPlayed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showGovernance, setShowGovernance] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [showTesting, setShowTesting] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const isExecutingDraw = false // Static value since setter is unused
+  const [gameStarted, setGameStarted] = useState(false)
+  const [selectedONG, setSelectedONG] = useState<ONG | null>(null)
+  const [selectedNumbers, setSelectedNumbers] = useState<number | null>(null) // Single number 0-99
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [winningNumbers, setWinningNumbers] = useState<number | null>(null)
+  const [hasPlayed, setHasPlayed] = useState(false)
+  const [betResult, setBetResult] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showGovernance, setShowGovernance] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [showTesting, setShowTesting] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [isCreatingUser, setIsCreatingUser] = useState(false)
+  const [isExecutingDraw, setIsExecutingDraw] = useState(false)
   
   // 🔢 TAKEN NUMBERS STATE (for main game)
   const [takenNumbers, setTakenNumbers] = useState<number[]>([])
   const [totalTaken, setTotalTaken] = useState(0)
-    // 🔄 AUTO-REFRESH STATES
+  
+  // 🔄 AUTO-REFRESH STATES
   const [shouldRefreshResults, setShouldRefreshResults] = useState(false)
+  const [lastGameTimestamp, setLastGameTimestamp] = useState<number>(0)
   const drawResultsRef = useRef<DrawResultsRef>(null)
   const ticketResultsRef = useRef<TicketResultsRef>(null)
   
   // 🎫 PENDING TICKETS STATE (for real-time updates)
   const [hasPendingTickets, setHasPendingTickets] = useState(false)
+  const [lastDrawCheck, setLastDrawCheck] = useState<number>(0)
+  
+  // 🎯 TEST MODE STATES
+  const [testMode, setTestMode] = useState<'normal' | 'win' | 'lose' | 'specific'>('normal')
+  const [testNumbers, setTestNumbers] = useState<number | null>(null)
   
   const audioRef = useAudio()
   
@@ -84,15 +93,17 @@ function GameContentInner() {
             console.log('✅ Usuario autenticado:', result.user.id, result.user.isNew ? '(nuevo)' : '(existente)')
           } else {
             setError(result.error || 'Error al crear usuario')
-          }        } catch {
+          }
+        } catch (err) {
           setError('Error de conexión al autenticar usuario')
         } finally {
           setIsCreatingUser(false)
-        }      }
+        }
+      }
     }
 
     createOrGetUser()
-  }, [authenticated, user?.wallet?.address, user?.email?.address, currentUser, isCreatingUser])
+  }, [authenticated, user?.wallet?.address, currentUser, isCreatingUser])
 
   // 🧹 Clear user on logout
   useEffect(() => {
@@ -132,15 +143,15 @@ function GameContentInner() {
           let winningNumbers = null
           
           if (ticketsData.status === 'pending') {
-            pendingCount = 1          } else if (ticketsData.status === 'completed') {
+            pendingCount = 1
+          } else if (ticketsData.status === 'completed') {
             // Check if completed recently (within last 30 seconds)
             const completedAt = new Date(ticketsData.ticket.confirmedAt).getTime()
-            const isRecent = completedAt > Date.now() - 30000;
+            const isRecent = completedAt > Date.now() - 30000
             if (isRecent) {
               recentlyCompletedCount = 1
               userWon = ticketsData.ticket.isWinner
-              // 🔧 Convert winningNumbers from string to number for proper comparison
-              winningNumbers = parseInt(ticketsData.ticket.winningNumbers, 10)
+              winningNumbers = ticketsData.ticket.winningNumbers
             }
           }
           
@@ -191,7 +202,7 @@ function GameContentInner() {
       const interval = setInterval(checkForPendingTicketsAndDraws, pollInterval)
       return () => clearInterval(interval)
     }
-  }, [authenticated, currentUser, gameStarted, hasPlayed, hasPendingTickets, audioRef])
+  }, [authenticated, currentUser, gameStarted, hasPlayed, hasPendingTickets])
 
   // 🔄 Auto-refresh results after games
   useEffect(() => {
@@ -353,40 +364,51 @@ function GameContentInner() {
         setError(result.error || 'Error al realizar la apuesta')
         setIsPlaying(false)
         return
-      }      
+      }
+      
+      setBetResult(result)
       setIsPlaying(false)
       setHasPlayed(true)
       setHasPendingTickets(true) // Force polling to start immediately
 
       // 🎯 NEW: Solo mostrar que la apuesta fue exitosa, NO ejecutar sorteo automático
       setError(`🎯 ¡Apuesta registrada! Tu número: ${selectedNumbers}. Esperando sorteo...`)
-        // Refrescar resultados para mostrar la nueva apuesta pendiente
+      
+      // Refrescar resultados para mostrar la nueva apuesta pendiente
       console.log('🎮 [GameContent] Bet placed, triggering results refresh and polling')
+      setLastGameTimestamp(Date.now())
       setShouldRefreshResults(true)
-        } catch {
+      
+    } catch (err) {
       setError('Error de conexión al realizar la apuesta')
       setIsPlaying(false)
     }
   }
+
   const handleNewGame = () => {
     setSelectedNumbers(null)
     setWinningNumbers(null)
     setHasPlayed(false)
+    setBetResult(null)
     setError(null)
   }
+
   const handleBackToONGSelection = () => {
     setSelectedONG(null)
     setSelectedNumbers(null)
     setWinningNumbers(null)
     setHasPlayed(false)
+    setBetResult(null)
     setError(null)
   }
+
   const handleBackToStart = () => {
     setGameStarted(false)
     setSelectedONG(null)
     setSelectedNumbers(null)
     setWinningNumbers(null)
     setHasPlayed(false)
+    setBetResult(null)
     setError(null)
   }
 
@@ -401,8 +423,62 @@ function GameContentInner() {
   const handleShowResults = () => {
     setShowResults(true)
   }
+
   const handleHideResults = () => {
     setShowResults(false)
+  }
+
+  const handleExecuteDraw = async (specificNumbers?: number[]) => {
+    if (process.env.NODE_ENV !== 'development') {
+      setError('Solo disponible en modo desarrollo')
+      return
+    }
+
+    setIsExecutingDraw(true)
+    setError(null)
+
+    try {
+      const requestBody = specificNumbers ? { winningNumbers: specificNumbers } : {}
+      
+      const response = await fetch('/api/admin/execute-draw', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        const winNumbers = data.result.winningNumbers[0]
+        
+        // 🎯 NEW: Update local game state if player has a pending bet
+        if (hasPlayed && winningNumbers === null) {
+          setWinningNumbers(winNumbers)
+          
+          // Play appropriate sound based on result
+          if (selectedNumbers === winNumbers) {
+            audioRef.current?.playWinSound()
+          } else {
+            audioRef.current?.playLoseSound()
+          }
+        }
+        
+        setError(`✅ Sorteo ejecutado: ${winNumbers}. ${data.result.winners.length} ganador(es)`)
+        
+        console.log('🔧 [GameContent] Manual draw completed, triggering results refresh')
+        setLastGameTimestamp(Date.now())
+        setShouldRefreshResults(true)
+      } else {
+        setError(`❌ Error en sorteo: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error executing draw:', error)
+      setError('❌ Error de conexión al ejecutar sorteo')
+    } finally {
+      setIsExecutingDraw(false)
+    }
   }
 
   const handleShowTesting = () => {

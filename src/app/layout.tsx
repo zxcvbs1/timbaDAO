@@ -6,7 +6,7 @@ import PrivyProvider from "../contexts/PrivyProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Super Lotería Neón - Juega y Ayuda",
+  title: "TimbaDAO - Juega y Ayuda",
   description: "La lotería más solidaria del mundo",
 };
 

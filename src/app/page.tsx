@@ -16,7 +16,7 @@ const GameContentClient = dynamic(() => import('../components/GameContent'), {
       fontSize: '24px',
       fontFamily: 'Orbitron, monospace'
     }}>
-      🎰 Cargando Super Lotería... 🎰
+      🎰 Cargando TimbaDAO... 🎰
     </div>
   )
 })

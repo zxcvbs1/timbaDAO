@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styled from 'styled-components'
 
@@ -278,7 +278,6 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
-  const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now())
   const [lastKnownActivity, setLastKnownActivity] = useState<number>(0)
   useEffect(() => {
     loadResults()
@@ -310,12 +309,12 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
           console.log('🔄 [DrawResults] Initialized with latest activity:', new Date(latestActivity).toLocaleTimeString())
         }
       } catch (error) {
-        console.error('Error initializing activity timestamp:', error)
-      }
-    }
+        console.error('Error initializing activity timestamp:', error)      }    }
     
     initializeActivity()
-  }, [])// 🔄 AUTO-REFRESH: Actualizar resultados automáticamente
+  }, [])
+
+  // 🔄 AUTO-REFRESH: Actualizar resultados automáticamente
   useEffect(() => {
     if (!autoRefresh) return;
 
@@ -348,46 +347,35 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
           // Solo recargar si hay actividad más reciente que la que conocemos
           if (latestActivity > lastKnownActivity) {
             console.log('🔄 [DrawResults] New activity detected, refreshing results...');
-            console.log(`   Previous activity: ${new Date(lastKnownActivity).toLocaleTimeString()}`);
-            console.log(`   Latest activity: ${new Date(latestActivity).toLocaleTimeString()}`);
+            console.log(`   Previous activity: ${new Date(lastKnownActivity).toLocaleTimeString()}`);            console.log(`   Latest activity: ${new Date(latestActivity).toLocaleTimeString()}`);
             
             loadResults(true);
             setLastKnownActivity(latestActivity);
-            setLastUpdateTime(Date.now());
           } else {
             console.log('🔄 [DrawResults] No new activity detected');
           }
         }
-      } catch (error) {
-        console.error('Error checking activity:', error)
+      } catch (error) {        console.error('Error checking activity:', error)
         // Si hay error, hacer refresh completo como fallback
         loadResults(true);
-        setLastUpdateTime(Date.now());
-      }
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
+      }    }, refreshInterval);return () => clearInterval(interval);
   }, [autoRefresh, refreshInterval, userAddress, lastKnownActivity])
-
   // 🎯 MÉTODO PÚBLICO PARA FORZAR ACTUALIZACIÓN
-  const forceRefresh = () => {
-    console.log('🔄 [DrawResults] Force refresh triggered');
-    loadResults(true);
-    setLastUpdateTime(Date.now());
-  }
+  const forceRefresh = useCallback(() => {
+    console.log('🔄 [DrawResults] Force refresh triggered');    loadResults(true);
+  }, [])
 
   // 🔌 EXPONER MÉTODOS VIA REF
   useImperativeHandle(ref, () => ({
     forceRefresh
-  }), []);
+  }), [forceRefresh]);
 
   // Exponer método para que componentes padre puedan refrescar (fallback)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).refreshDrawResults = forceRefresh;
     }
-  }, []);
-  const loadResults = async (reset = true) => {
+  }, [forceRefresh]);const loadResults = useCallback(async (reset = true) => {
     try {
       setLoading(true)
       setError(null)
@@ -413,8 +401,7 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
       
       let data
       try {
-        data = JSON.parse(responseText)
-      } catch (jsonError) {
+        data = JSON.parse(responseText)      } catch {
         console.error('Invalid JSON response:', responseText)
         throw new Error('Invalid JSON response from server')
       }
@@ -523,11 +510,10 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
           }
         }
       ]
-      setResults(mockResults)
-    } finally {
+      setResults(mockResults)    } finally {
       setLoading(false)
     }
-  }
+  }, [userAddress, page, maxResults])
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -540,13 +526,7 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(new Date(date))
-  }
-
-  const isUserWinner = (winners: DrawResult['winners']) => {
-    if (!userAddress) return false
-    return winners.some(w => w.address.toLowerCase() === userAddress.toLowerCase())
-  }
+    }).format(new Date(date))  }
 
   const getUserPrize = (winners: DrawResult['winners']) => {
     if (!userAddress) return null
@@ -580,9 +560,7 @@ const DrawResults = forwardRef<DrawResultsRef, Props>(({
             const dateA = new Date(a.drawDate).getTime()
             const dateB = new Date(b.drawDate).getTime()
             return dateB - dateA // Más reciente primero
-          })
-          .map((result, index) => {
-          const userWinner = getUserPrize(result.winners)
+          })        .map((result, index) => {
           const userParticipated = result.userParticipation?.participated
           
           return (

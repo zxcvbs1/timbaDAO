@@ -66,7 +66,7 @@ export interface AudioManagerRef {
 }
 
 const AudioManager = forwardRef<AudioManagerRef, Props>(
-  ({ onPlaySlotSound, onPlayWinSound, onPlayLoseSound }, ref) => {
+  ({}, ref) => {
     const [volume, setVolume] = useState(0.75) // Iniciar en 75%
     const [isMuted, setIsMuted] = useState(false)
     const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
@@ -98,7 +98,7 @@ const AudioManager = forwardRef<AudioManagerRef, Props>(
         loseSound.setVolume(0)
         clickSound.setVolume(0)
       }
-    }, [volume, isMuted])
+    }, [volume, isMuted, backgroundMusic, clickSound, loseSound, slotSound, winSound])
 
     // Exponer funciones mediante useImperativeHandle
     useImperativeHandle(ref, () => ({

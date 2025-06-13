@@ -11,13 +11,13 @@ interface TweetOptions {
 
 export function useTweetGenerator({ selectedNumbers, winningNumbers, isWinner, selectedONG }: TweetOptions) {
   const winningTweets = [
-    `🎰🎉 ¡GANÉ EN SUPER LOTERÍA NEÓN! 🎉
+    `🎰🎉 ¡GANÉ EN TIMBADAO! 🎉
 
 Número ganador: ${selectedNumbers} ✨
 ${selectedONG.icon} 15% de mi jugada va para ${selectedONG.name}
 
 ¡GANAR Y AYUDAR SE SIENTE INCREÍBLE! 💫
-#LoteríaNeón #${selectedONG.name.replace(/\s+/g, '')} #JuegoSolidario`,
+#TimbaDAO #${selectedONG.name.replace(/\s+/g, '')} #JuegoSolidario`,
 
     `🚨 ¡JACKPOT SOLIDARIO! 🚨
 
@@ -25,7 +25,7 @@ ${selectedONG.icon} 15% de mi jugada va para ${selectedONG.name}
 💝 Mi premio ayuda a ${selectedONG.name} ${selectedONG.icon}
 
 Cada victoria cuenta para una buena causa 🌟
-#LoteríaNeón #SolidaridadDigital`,
+#TimbaDAO #SolidaridadDigital`,
 
     `💥 ¡BOOM! Número mágico: ${selectedNumbers} 💥
 
@@ -33,7 +33,7 @@ Cada victoria cuenta para una buena causa 🌟
 15% de cada jugada va directo a ONGs
 
 ¡La lotería más solidaria! 🤝
-#LoteríaNeón #JuegoConPropósito`,
+#TimbaDAO #JuegoConPropósito`,
 
     `🎰 ¡VICTORIA DOBLE! 🎰
 
@@ -41,7 +41,7 @@ Cada victoria cuenta para una buena causa 🌟
 ❤️ Contribuí a ${selectedONG.name} ${selectedONG.icon}
 
 ¡Jugar nunca se sintió tan bien! 🔥
-#LoteríaNeón #GanarAyudando`
+#TimbaDAO #GanarAyudando`
   ]
 
   const losingTweets = [
@@ -51,14 +51,14 @@ Mi número: ${selectedNumbers} | Ganador: ${winningNumbers}
 ${selectedONG.icon} 15% fue para ${selectedONG.name}
 
 ¡Perder nunca se sintió tan bien! 🤗
-#LoteríaNeón #SiempreGanas`,
+#TimbaDAO #SiempreGanas`,
 
     `🎯 ${selectedNumbers} vs ${winningNumbers} 🎯
 
 No acerté, pero mi jugada apoya a ${selectedONG.name} ${selectedONG.icon}
 ¡CADA INTENTO CUENTA! 🌟
 
-#LoteríaNeón #JuegoSolidario #${selectedONG.name.replace(/\s+/g, '')}`,
+#TimbaDAO #JuegoSolidario #${selectedONG.name.replace(/\s+/g, '')}`,
 
     `🎰 Casi gano con ${selectedNumbers}! 🎰
 
@@ -66,20 +66,19 @@ Pero lo genial: ayudé a ${selectedONG.name} ${selectedONG.icon}
 15% de cada jugada = impacto real 💝
 
 ¡Voy por el siguiente! 🚀
-#LoteríaNeón #CadaJugadaCuenta`,
+#TimbaDAO #CadaJugadaCuenta`,
 
     `🎲 ${selectedNumbers} no salió, ¡pero mi corazón está lleno! ❤️
 
 Mi jugada contribuyó a ${selectedONG.name} ${selectedONG.icon}
 ¡En esta lotería TODOS ganamos! 🤝
 
-#LoteríaNeón #JugarConCorazón`
+#TimbaDAO #JugarConCorazón`
   ]
-
   const selectedTweet = useMemo(() => {
     const tweets = isWinner ? winningTweets : losingTweets
     return tweets[Math.floor(Math.random() * tweets.length)]
-  }, [selectedNumbers, winningNumbers, isWinner, selectedONG.id])
+  }, [selectedNumbers, winningNumbers, isWinner, selectedONG.id, winningTweets, losingTweets])
 
   return selectedTweet
 }

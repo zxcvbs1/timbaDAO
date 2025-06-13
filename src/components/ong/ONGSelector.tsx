@@ -190,13 +190,6 @@ const SelectButton = styled(motion.div).withConfig({
   transition: all 0.3s ease;
 `
 
-const NoResults = styled.div`
-  text-align: center;
-  color: #ff6b6b;
-  font-size: 18px;
-  margin-top: 50px;
-`
-
 interface Props {
   onSelectONG: (ong: ONG) => void
   onShowGovernance: () => void
@@ -336,9 +329,8 @@ export default function ONGSelector({ onSelectONG, onShowGovernance }: Props) {
             <ONGName color="purple">Gobernanza Democrática</ONGName>
             <ONGDescription>
               Participa en la gestión democrática de las ONGs. Vota propuestas y propón nuevas organizaciones.
-            </ONGDescription>
-            <ONGMission color="purple">
-              "El poder de decidir está en tus manos"
+            </ONGDescription>            <ONGMission color="purple">
+              &quot;El poder de decidir está en tus manos&quot;
             </ONGMission>
             
             <SelectButton
@@ -367,7 +359,7 @@ export default function ONGSelector({ onSelectONG, onShowGovernance }: Props) {
                 <ONGIcon color={ong.color}>{ong.icon}</ONGIcon>
                 <ONGName color={ong.color}>{ong.name}</ONGName>
                 <ONGDescription>{ong.description}</ONGDescription>
-                <ONGMission color={ong.color}>"{ong.mission}"</ONGMission>
+                <ONGMission color={ong.color}>&quot;{ong.mission}&quot;</ONGMission>
                 
                 <SelectButton
                   color={ong.color}
@@ -387,7 +379,7 @@ export default function ONGSelector({ onSelectONG, onShowGovernance }: Props) {
               fontSize: '18px',
               marginTop: '40px' 
             }}>
-              🔍 No se encontraron ONGs que coincidan con "{searchTerm}"
+              🔍 No se encontraron ONGs que coincidan con &quot;{searchTerm}&quot;
             </div>
           ) : null}
         </ONGGrid>

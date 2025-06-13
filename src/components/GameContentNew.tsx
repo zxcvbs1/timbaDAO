@@ -1,9 +1,7 @@
 // 🔥 NEW: Updated GameContent for single number (0-99) lottery system
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import NeonDisplay from '@/components/lottery/NeonDisplay'
 import NumberGrid from '@/components/lottery/NumberGrid'
-import Ticket from '@/components/lottery/Ticket'
 import PlayButton from '@/components/lottery/PlayButton'
 import DrawResults, { DrawResultsRef } from '@/components/lottery/DrawResults'
 import BackgroundEffect from '@/components/ui/BackgroundEffect'
@@ -24,17 +22,14 @@ function GameContentInner() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [winningNumbers, setWinningNumbers] = useState<number | null>(null)
   const [hasPlayed, setHasPlayed] = useState(false)
-  const [betResult, setBetResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [showGovernance, setShowGovernance] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isExecutingDraw, setIsExecutingDraw] = useState(false)
-  
-  // 🔄 AUTO-REFRESH STATES
+    // 🔄 AUTO-REFRESH STATES
   const [shouldRefreshResults, setShouldRefreshResults] = useState(false)
-  const [lastGameTimestamp, setLastGameTimestamp] = useState<number>(0)
   const drawResultsRef = useRef<DrawResultsRef>(null)
   
   // 🎯 TEST MODE STATES
@@ -67,8 +62,7 @@ function GameContentInner() {
             console.log('✅ Usuario autenticado:', result.user.id, result.user.isNew ? '(nuevo)' : '(existente)')
           } else {
             setError(result.error || 'Error al crear usuario')
-          }
-        } catch (err) {
+          }        } catch {
           setError('Error de conexión al autenticar usuario')
         } finally {
           setIsCreatingUser(false)
@@ -77,7 +71,7 @@ function GameContentInner() {
     }
 
     createOrGetUser()
-  }, [authenticated, user?.wallet?.address, currentUser, isCreatingUser])
+  }, [authenticated, user?.wallet?.address, user?.email?.address, currentUser, isCreatingUser])
 
   // 🧹 Clear user on logout
   useEffect(() => {
@@ -137,8 +131,7 @@ function GameContentInner() {
         textAlign: 'center'
       }}>
         <BackgroundEffect />
-        <div style={{ marginBottom: '40px' }}>
-          <h1 style={{ 
+        <div style={{ marginBottom: '40px' }}>          <h1 style={{ 
             fontSize: '48px', 
             marginBottom: '20px',
             background: 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00)',
@@ -146,7 +139,7 @@ function GameContentInner() {
             color: 'transparent',
             textShadow: '0 0 30px rgba(255, 0, 255, 0.5)'
           }}>
-            🎰 TIMBADAO NEÓN 🎰
+            🎰 TIMBADAO 🎰
           </h1>
           <p style={{ fontSize: '18px', marginBottom: '30px' }}>
             La lotería única 0-99 más solidaria
@@ -237,22 +230,19 @@ function GameContentInner() {
     
     audioRef.current?.playSlotSound()
     
-    try {
-      // Place bet with single number array
+    try {      // Place bet with single number array
       const result = await apiClient.placeBet(
         userAddress,
         [selectedNumbers], // Convert to array for API compatibility
         selectedONG.id,
         1000000000000000000 // 1 MNT in wei
-      )
-
+      );
+      
       if (!result.success) {
         setError(result.error || 'Error al realizar la apuesta')
         setIsPlaying(false)
         return
       }
-
-      setBetResult(result)
 
       // Execute draw automatically with test modes
       setTimeout(async () => {
@@ -294,9 +284,7 @@ function GameContentInner() {
             setWinningNumbers(finalWinningNumber)
             setIsPlaying(false)
             setHasPlayed(true)
-            
-            console.log('🎮 [GameContent] Game completed, triggering results refresh')
-            setLastGameTimestamp(Date.now())
+              console.log('🎮 [GameContent] Game completed, triggering results refresh')
             setShouldRefreshResults(true)
             
             if (selectedNumbers === finalWinningNumber) {
@@ -314,43 +302,36 @@ function GameContentInner() {
           } else {
             setError(drawResult.error || 'Error al ejecutar el sorteo')
             setIsPlaying(false)
-          }
-        } catch (err) {
+          }        } catch {
           setError('Error de conexión al ejecutar el sorteo')
           setIsPlaying(false)
         }
       }, 3000)
       
-    } catch (err) {
+    } catch {
       setError('Error de conexión al realizar la apuesta')
       setIsPlaying(false)
     }
   }
-
   const handleNewGame = () => {
     setSelectedNumbers(null)
     setWinningNumbers(null)
     setHasPlayed(false)
-    setBetResult(null)
     setError(null)
   }
-
   const handleBackToONGSelection = () => {
     setSelectedONG(null)
     setSelectedNumbers(null)
     setWinningNumbers(null)
     setHasPlayed(false)
-    setBetResult(null)
     setError(null)
   }
-
   const handleBackToStart = () => {
     setGameStarted(false)
     setSelectedONG(null)
     setSelectedNumbers(null)
     setWinningNumbers(null)
     setHasPlayed(false)
-    setBetResult(null)
     setError(null)
   }
 
@@ -395,9 +376,7 @@ function GameContentInner() {
       if (data.success) {
         const winNumbers = data.result.winningNumbers[0]
         setError(`✅ Sorteo ejecutado: ${winNumbers}. ${data.result.winners.length} ganador(es)`)
-        
-        console.log('🔧 [GameContent] Manual draw completed, triggering results refresh')
-        setLastGameTimestamp(Date.now())
+          console.log('🔧 [GameContent] Manual draw completed, triggering results refresh')
         setShouldRefreshResults(true)
       } else {
         setError(`❌ Error en sorteo: ${data.error}`)
@@ -407,14 +386,13 @@ function GameContentInner() {
       setError('❌ Error de conexión al ejecutar sorteo')
     } finally {
       setIsExecutingDraw(false)
-    }
-  }
+    }  }
 
   // Show governance panel
   if (showGovernance) {
     return (
       <GovernancePanel
-        currentUser={currentUser}
+        userAddress={userAddress}
         onBack={handleHideGovernance}
       />
     )
@@ -487,7 +465,10 @@ function GameContentInner() {
           >
             🔙 INICIO
           </button>
-          <ONGSelector onSelectONG={handleSelectONG} />
+          <ONGSelector 
+            onSelectONG={handleSelectONG} 
+            onShowGovernance={handleShowGovernance}
+          />
         </div>
       </div>
     )
@@ -545,7 +526,7 @@ function GameContentInner() {
             fontFamily: 'Orbitron, monospace',
             marginBottom: '10px'
           }}>
-            🎰 TIMBADAO NEÓN 🎰
+            🎰 TIMBADAO 🎰
           </h1>
           <p style={{
             color: '#00ffff',
@@ -569,27 +550,37 @@ function GameContentInner() {
                 marginBottom: '20px'
               }}>
                 🎯 Selecciona tu número único (0-99)
-              </h2>
-              <NumberGrid
+              </h2>              <NumberGrid
                 onNumberSelect={handleSelectNumber}
                 selectedNumber={selectedNumbers}
                 disabled={isPlaying}
-                userId={userAddress}
               />
             </div>
-          )}
-
-          {/* Ticket display */}
+          )}          {/* Ticket display - TODO: Fix props interface */}
           {selectedNumbers !== null && (
             <div style={{ marginBottom: '30px' }}>
-              <Ticket
+              {/* <Ticket
                 selectedNumber={selectedNumbers}
                 selectedONG={selectedONG}
                 isPlaying={isPlaying}
                 winningNumber={winningNumbers}
                 isWinner={selectedNumbers === winningNumbers}
                 betResult={betResult}
-              />
+              /> */}
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.6)',
+                border: '2px solid #00ffff',
+                borderRadius: '15px',
+                padding: '20px',
+                textAlign: 'center',
+                color: '#00ffff',
+                fontFamily: 'Orbitron, monospace'
+              }}>
+                <h3>🎫 Tu Boleto</h3>
+                <p>Número seleccionado: <span style={{ color: '#ffff00', fontSize: '24px', fontWeight: 'bold' }}>{selectedNumbers}</span></p>
+                <p>ONG: <span style={{ color: '#ff00ff' }}>{selectedONG.name}</span></p>
+                {isPlaying && <p style={{ color: '#orange' }}>🎲 Procesando apuesta...</p>}
+              </div>
             </div>
           )}
 
@@ -606,7 +597,7 @@ function GameContentInner() {
           {/* Results display */}
           {hasPlayed && (
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-              {selectedNumbers === winningNumbers ? (
+              {selectedNumbers !== null && selectedNumbers === winningNumbers ? (
                 <div style={{
                   padding: '30px',
                   background: 'linear-gradient(45deg, #00ff00, #ffff00)',
@@ -655,13 +646,11 @@ function GameContentInner() {
                 }}
               >
                 🎲 NUEVO JUEGO
-              </button>
-
-              <ShareButton
-                selectedNumbers={selectedNumbers.toString()}
+              </button>              <ShareButton
+                selectedNumbers={selectedNumbers?.toString() || ''}
                 winningNumbers={winningNumbers?.toString() || ''}
                 selectedONG={selectedONG}
-                isWinner={selectedNumbers === winningNumbers}
+                isWinner={selectedNumbers !== null && selectedNumbers === winningNumbers}
               />
             </div>
           )}
@@ -683,16 +672,16 @@ function GameContentInner() {
 
           {/* Development tools */}
           {process.env.NODE_ENV === 'development' && (
-            <div style={{ marginTop: '40px' }}>
-              <TestModeSelection
+            <div style={{ marginTop: '40px' }}>              <TestModeSelection
                 testMode={testMode}
                 testNumbers={testNumbers?.toString() || ''}
+                selectedNumbers={selectedNumbers}
                 onTestModeChange={setTestMode}
                 onTestNumbersChange={(nums) => setTestNumbers(parseInt(nums) || null)}
-              />
-              <AdminTestingPanel
+              />              <AdminTestingPanel
                 onExecuteDraw={handleExecuteDraw}
                 isExecuting={isExecutingDraw}
+                selectedNumbers={selectedNumbers?.toString() || ''}
               />
             </div>
           )}

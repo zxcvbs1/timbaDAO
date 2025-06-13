@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import styled from 'styled-components'
 import { useTweetGenerator } from '@/hooks/useTweetGenerator'
+import { ONG } from '@/lib/api-client'
 
 const ShareContainer = styled.div`
   display: flex;
@@ -57,16 +58,17 @@ interface Props {
   selectedNumbers: string
   winningNumbers: string
   isWinner: boolean
+  selectedONG: ONG
 }
 
-export default function ShareOptions({ selectedNumbers, winningNumbers, isWinner }: Props) {
+export default function ShareOptions({ selectedNumbers, winningNumbers, isWinner, selectedONG }: Props) {
   const [refreshKey, setRefreshKey] = useState(0)
   
   const tweetText = useTweetGenerator({ 
     selectedNumbers, 
     winningNumbers, 
     isWinner,
-    key: refreshKey 
+    selectedONG
   })
 
   const handleShare = () => {

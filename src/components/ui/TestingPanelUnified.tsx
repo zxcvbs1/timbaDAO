@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import TicketResults, { TicketResultsRef } from '@/components/lottery/TicketResults'
 import NumberGrid from '@/components/lottery/NumberGrid'
 import BackgroundEffect from '@/components/ui/BackgroundEffect'
-import SSEDebugPanel from '@/components/ui/SSEDebugPanel'
+// SSE Import removed - migrated to polling system
 
 const Container = styled.div`
   min-height: 100vh;
@@ -34,62 +34,75 @@ const Header = styled.div`
 `
 
 const Title = styled.h1`
-  font-size: 48px;
+  font-size: 36px; // Reducido para mejor balance
   font-weight: bold;
   background: linear-gradient(45deg, #ff8800, #ffaa00, #ffcc00);
   background-clip: text;
   color: transparent;
-  text-shadow: 0 0 30px rgba(255, 136, 0, 0.5);
-  margin-bottom: 20px;
+  text-shadow: 0 0 20px rgba(255, 136, 0, 0.4); // Sombra más sutil
+  margin-bottom: 10px; // Reducido
   font-family: 'Orbitron', monospace;
 `
 
 const Subtitle = styled.p`
   color: #ffaa00;
-  font-size: 18px;
-  margin-bottom: 20px;
+  font-size: 16px; // Reducido
+  margin-bottom: 15px; // Reducido
   font-family: 'Orbitron', monospace;
 `
 
 const WarningBanner = styled.div`
-  background: rgba(255, 136, 0, 0.1);
-  border: 2px solid #ff8800;
-  border-radius: 10px;
-  padding: 15px;
-  color: #ff8800;
+  background: rgba(255, 136, 0, 0.15); // Un poco más opaco
+  border: 1px solid #ff8800; // Borde más fino
+  border-radius: 8px; // Menos redondeado
+  padding: 12px; // Ajustado
+  color: #ffcc80; // Tono más claro
   font-family: 'Orbitron', monospace;
-  font-size: 14px;
-  max-width: 600px;
-  margin: 0 auto;
+  font-size: 13px; // Reducido
+  max-width: 700px; // Un poco más ancho
+  margin: 0 auto 30px auto; // Margen inferior añadido
 `
 
 const TestingGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
-  max-width: 1400px;
+  grid-template-columns: 1fr 1fr; // Mantenido para dos columnas principales
+  gap: 25px; // Espacio ligeramente reducido
+  max-width: 1500px; // Aumentado para más espacio
   margin: 0 auto;
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1200px) { // Ajuste para tablets grandes
     grid-template-columns: 1fr;
     gap: 20px;
   }
 `
 
 const TestingSection = styled.div`
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #ff8800;
-  border-radius: 20px;
-  padding: 25px;
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.65); // Un poco más opaco
+  border: 1px solid #ffaa00; // Borde más sutil, color ajustado
+  border-radius: 15px; // Redondez ajustada
+  padding: 20px; // Padding ajustado
+  backdrop-filter: blur(8px); // Blur ligeramente reducido
+  display: flex; // Flex para mejor alineación interna
+  flex-direction: column; // Elementos internos en columna
 `
 
 const SectionTitle = styled.h2`
-  color: #ffaa00;
-  font-size: 24px;
-  margin-bottom: 20px;
+  color: #ffc966; // Tono más claro y vibrante
+  font-size: 22px; // Ligeramente reducido
+  margin-bottom: 15px;
   text-align: center;
   font-family: 'Orbitron', monospace;
+  border-bottom: 1px solid #ffaa00; // Línea divisoria sutil
+  padding-bottom: 10px; // Espacio para la línea
+`
+
+const SectionDescription = styled.p`
+  color: #bbaacc; // Color suave para descripciones
+  font-size: 13px;
+  font-family: 'Arial', sans-serif; // Fuente más legible para texto largo
+  margin-bottom: 15px;
+  text-align: center;
+  line-height: 1.5;
 `
 
 const ControlsGrid = styled.div`
@@ -168,30 +181,14 @@ const ExecuteButton = styled(motion.button)<{ disabled: boolean }>`
 
 const InfoText = styled.div`
   color: #ccc;
-  font-size: 14px;
+  font-size: 13px; // Ligeramente más pequeño
   font-family: 'Orbitron', monospace;
   margin-bottom: 15px;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45); // Un poco más opaco
+  border-radius: 6px; // Menos redondeado
   text-align: center;
-`
-
-const StatsDisplay = styled.div`
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #666;
-  border-radius: 10px;
-  padding: 15px;
-  margin-bottom: 20px;
-`
-
-const StatItem = styled.div`
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  color: #ccc;
-  font-size: 12px;
-  font-family: 'Orbitron', monospace;
+  border: 1px solid #555; // Borde sutil
 `
 
 interface Props {
@@ -425,8 +422,7 @@ export default function TestingPanel({ onBack, userAddress }: Props) {
         setSelectedNumbers([])
       } else {
         setError(`❌ Error simulando jugador: Todas las apuestas fallaron`)
-      }
-    } catch (error) {
+      }    } catch {
       console.error('Error simulating player:', error)
       setError('❌ Error de conexión al simular jugador')
     } finally {
@@ -474,205 +470,151 @@ export default function TestingPanel({ onBack, userAddress }: Props) {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        🔙 VOLVER
+        🔙 VOLVER AL JUEGO
       </BackButton>
 
       <Header>
-        <Title>🔧 PANEL DE TESTING UNIFICADO 🔧</Title>
-        <Subtitle>Sistema de números únicos (0-99) - Modo Desarrollo</Subtitle>
+        <Title>🔧 PANEL DE PRUEBAS Y SIMULACIÓN 🔧</Title>
+        <Subtitle>Sistema de Lotería (Números Únicos 0-99) - Entorno de Desarrollo</Subtitle>
         
         <WarningBanner>
-          ⚠️ SOLO PARA DESARROLLO - Panel único para controlar sorteos manualmente
+          ⚠️ <strong>ATENCIÓN:</strong> Este panel es exclusivamente para desarrollo y pruebas. Las acciones aquí pueden afectar el estado simulado del juego.
         </WarningBanner>
       </Header>
 
       <TestingGrid>
-        {/* Left Column - Controls and Number Grid */}
-        <div>
-          <TestingSection>
-            <SectionTitle>🎯 Selección de Número y Controles</SectionTitle>
-            
-            {/* Number Grid with taken numbers */}
-            <div style={{ marginBottom: '20px' }}>              <NumberGrid
-                onNumberSelect={handleSelectNumber}
-                selectedNumber={selectedNumbers.length > 0 ? selectedNumbers[selectedNumbers.length - 1] : null}
-                disabled={false}
-                takenNumbers={takenNumbers}
-                roundProgress={{
-                  totalSlots: 100,
-                  takenSlots: totalTaken,
-                  timeRemaining: '∞'
-                }}
-              />
-            </div>
-
-            {/* Statistics */}
-            <StatsDisplay>
-              <StatItem>
-                <span>📊 Números tomados:</span>
-                <span>{totalTaken}/100</span>
-              </StatItem>
-              <StatItem>
-                <span>📈 Disponibles:</span>
-                <span>{100 - totalTaken}/100</span>
-              </StatItem>              <StatItem>
-                <span>🎯 Tu selección:</span>
-                <span>{selectedNumbers.length > 0 ? selectedNumbers.map(n => n.toString().padStart(2, '0')).join(', ') : 'Ninguno'}</span>
-              </StatItem>
-            </StatsDisplay>
-
-            {/* Testing Mode Selection */}
-            <SectionTitle>🎮 Modo de Testing</SectionTitle>
-            
-            <ControlsGrid>
-              <ModeButton
-                isActive={testMode === 'random'}
-                onClick={() => setTestMode('random')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                🎲 Aleatorio
-              </ModeButton>
-                <ModeButton
-                isActive={testMode === 'win'}
-                disabled={selectedNumbers.length === 0}
-                onClick={() => setTestMode('win')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                🏆 Forzar Victoria
-              </ModeButton>
-              
-              <ModeButton
-                isActive={testMode === 'lose'}
-                disabled={selectedNumbers.length === 0}
-                onClick={() => setTestMode('lose')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                💔 Forzar Derrota
-              </ModeButton>
-              
-              <ModeButton
-                isActive={testMode === 'specific'}
-                onClick={() => setTestMode('specific')}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                🎯 Específico
-              </ModeButton>
-            </ControlsGrid>
-
-            {/* Specific number input */}
-            {testMode === 'specific' && (
-              <div style={{ marginBottom: '15px' }}>
-                <NumberInput
-                  type="text"
-                  value={testNumber}
-                  onChange={(e) => handleTestNumberChange(e.target.value)}
-                  placeholder="Número ganador (0-99)"
-                  maxLength={2}
-                />
-              </div>
-            )}
-
-            {/* Mode description */}
+        {/* Columna Izquierda: Simulación de Jugadores y Números Tomados */}
+        <TestingSection>
+          <SectionTitle>🎭 Simulación de Jugadores</SectionTitle>          <SectionDescription>
+            Esta sección permite simular la acción de un jugador realizando apuestas. 
+            Selecciona uno o varios números en la parrilla de abajo y luego haz clic en &quot;Simular Apuesta de Jugador&quot;.
+            Esto creará un usuario y una apuesta simulada para los números elegidos, marcándolos como &quot;tomados&quot;.
+          </SectionDescription>
+          
+          {/* Number Grid para seleccionar números para simular apuesta */}
+          <div style={{ marginBottom: '20px' }}>
             <InfoText>
-              {getModeDescription()}
-            </InfoText>            {/* Execute button */}
-            <ExecuteButton
-              disabled={isExecutingDraw || !canExecute()}
-              onClick={handleExecuteDraw}
-              whileHover={{ scale: canExecute() && !isExecutingDraw ? 1.02 : 1 }}
-              whileTap={{ scale: canExecute() && !isExecutingDraw ? 0.98 : 1 }}
-            >
-              {isExecutingDraw ? '⏳ Ejecutando...' : '🎲 Ejecutar Sorteo Controlado'}
-            </ExecuteButton>            {/* Simulate Player button */}
-            <ExecuteButton
-              disabled={isSimulatingPlayer || selectedNumbers.length === 0 || selectedNumbers.some(num => takenNumbers.includes(num))}
-              onClick={handleSimulatePlayer}
-              whileHover={{ scale: !isSimulatingPlayer && selectedNumbers.length > 0 ? 1.02 : 1 }}
-              whileTap={{ scale: !isSimulatingPlayer && selectedNumbers.length > 0 ? 0.98 : 1 }}
-              style={{ 
-                background: isSimulatingPlayer || selectedNumbers.length === 0 || selectedNumbers.some(num => takenNumbers.includes(num))
-                  ? 'linear-gradient(45deg, #666, #888)'
-                  : 'linear-gradient(45deg, #ff8800, #ffaa00)',
-                marginTop: '10px'
-              }}
-            >
-              {isSimulatingPlayer ? '⏳ Simulando...' : '🎭 Simular Jugadores (Reservar Números)'}
-            </ExecuteButton>
-
-            {/* Error/Success message */}
-            {error && (
-              <div style={{
-                marginTop: '15px',
-                padding: '10px',
-                background: error.startsWith('✅') 
-                  ? 'rgba(0, 255, 0, 0.1)' 
-                  : 'rgba(255, 68, 68, 0.1)',
-                border: `2px solid ${error.startsWith('✅') ? '#00ff00' : '#ff4444'}`,
-                borderRadius: '10px',
-                color: error.startsWith('✅') ? '#00ff00' : '#ff4444',
-                fontFamily: 'Orbitron, monospace',
-                fontSize: '14px'
-              }}>
-                {error}
-              </div>
-            )}
-          </TestingSection>
-        </div>
-
-        {/* Right Column - Results */}
-        <div>
-          <TestingSection>
-            <SectionTitle>📊 Resultados en Tiempo Real</SectionTitle>
-            <TicketResults 
-              ref={ticketResultsRef}
-              userAddress={userAddress}
-              autoRefresh={true}
-              refreshInterval={3000}
-              maxResults={8}
-              showHeader={false}
+              Números seleccionados para simular apuesta: {selectedNumbers.length > 0 ? selectedNumbers.map(n => n.toString().padStart(2, '0')).join(', ') : 'Ninguno'}
+              <br />
+              Total de números ya tomados en el sistema: {totalTaken} / 100
+            </InfoText>            <NumberGrid
+              onNumberSelect={handleSelectNumber}
+              selectedNumber={null}
+              disabled={isSimulatingPlayer}
+              takenNumbers={takenNumbers}
+              roundProgress={{ totalSlots: 100, takenSlots: 0 }}
             />
-          </TestingSection>
-
-          {/* SSE Debugging Section */}
-          <div style={{ marginTop: '20px' }}>
-            <SSEDebugPanel />
           </div>
-        </div>
-      </TestingGrid>
 
-      {/* Instructions */}
-      <div style={{
-        maxWidth: '800px',
-        margin: '40px auto 0',
-        padding: '20px',
-        background: 'rgba(0, 0, 0, 0.4)',
-        border: '1px solid #666',
-        borderRadius: '15px',
-        color: '#ccc',
-        fontSize: '14px',
-        fontFamily: 'Orbitron, monospace'
-      }}>        <h3 style={{ color: '#ffaa00', marginBottom: '15px' }}>📋 Instrucciones del Panel Unificado:</h3>
-        <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
-          <li><strong>Observa números tomados:</strong> Los números en rojo ya están ocupados por otros jugadores</li>
-          <li><strong>Selecciona un número:</strong> Haz clic en cualquier número disponible (0-99)</li>
-          <li><strong>🎭 Simular Jugador:</strong> Reserva el número seleccionado como si fuera otro jugador real</li>
-          <li><strong>Elige modo de testing:</strong> Aleatorio, Forzar Victoria, Forzar Derrota, o Específico</li>
-          <li><strong>Ejecuta sorteo:</strong> Presiona el botón para ejecutar el sorteo controlado</li>
-          <li><strong>Observa resultados:</strong> Los tickets aparecen en tiempo real en el panel derecho</li>
-        </ol>
-        
-        <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(255, 136, 0, 0.1)', borderRadius: '5px' }}>
-          <strong>🎯 Nuevo:</strong> Panel único y unificado - ¡ahora puedes simular jugadores reales que reservan números!
+          <ExecuteButton
+            onClick={handleSimulatePlayer}
+            disabled={isSimulatingPlayer || selectedNumbers.length === 0}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {isSimulatingPlayer ? 'Simulando Apuesta...' : 'Simular Apuesta de Jugador'}
+          </ExecuteButton>
+          {error && error.includes('Jugador simulado creado') && <InfoText style={{ color: '#00ff00', marginTop: '10px' }}>{error}</InfoText>}
+          {error && error.includes('Error') && <InfoText style={{ color: '#ff4444', marginTop: '10px' }}>{error}</InfoText>}
+        </TestingSection>
+
+        {/* Columna Derecha: Control de Sorteos y Resultados */}
+        <TestingSection>
+          <SectionTitle>⚙️ Control Manual de Sorteos</SectionTitle>
+          <SectionDescription>
+            Aquí puedes forzar la ejecución de un sorteo. Elige un modo:
+            <ul>
+              <li><strong>Sorteo Aleatorio:</strong> El sistema elige un número ganador al azar.</li>
+              <li><strong>Forzar Victoria:</strong> El número ganador será el primer número que hayas seleccionado en la parrilla de la izquierda (para simular apuesta). Debes haber simulado una apuesta primero.</li>
+              <li><strong>Forzar Derrota:</strong> El sistema elegirá un número ganador que NO esté entre los que seleccionaste para la apuesta simulada.</li>
+              <li><strong>Número Específico:</strong> Ingresa manualmente el número que quieres que resulte ganador.</li>
+            </ul>
+          </SectionDescription>
+          
+          <ControlsGrid>
+            <ModeButton isActive={testMode === 'random'} onClick={() => setTestMode('random')} disabled={isExecutingDraw}>Sorteo Aleatorio</ModeButton>
+            <ModeButton isActive={testMode === 'win'} onClick={() => setTestMode('win')} disabled={isExecutingDraw || selectedNumbers.length === 0}>Forzar Victoria</ModeButton>
+            <ModeButton isActive={testMode === 'lose'} onClick={() => setTestMode('lose')} disabled={isExecutingDraw || selectedNumbers.length === 0}>Forzar Derrota</ModeButton>
+            <ModeButton isActive={testMode === 'specific'} onClick={() => setTestMode('specific')} disabled={isExecutingDraw}>Número Específico</ModeButton>
+          </ControlsGrid>
+
+          {testMode === 'specific' && (
+            <NumberInput
+              type="text"
+              placeholder="Número ganador (0-99)"
+              value={testNumber}
+              onChange={(e) => handleTestNumberChange(e.target.value)}
+              disabled={isExecutingDraw}
+            />
+          )}
+          
+          <InfoText>{getModeDescription()}</InfoText>
+
+          <ExecuteButton
+            onClick={handleExecuteDraw}
+            disabled={isExecutingDraw || !canExecute()}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {isExecutingDraw ? 'Ejecutando Sorteo...' : 'Ejecutar Sorteo Manual'}
+          </ExecuteButton>
+          {error && error.includes('Sorteo ejecutado') && <InfoText style={{ color: '#00ff00', marginTop: '10px' }}>{error}</InfoText>}
+          {error && error.includes('Error en sorteo') && <InfoText style={{ color: '#ff4444', marginTop: '10px' }}>{error}</InfoText>}
+
+          <div style={{ marginTop: '20px' }}>
+            <SectionTitle>📊 Resultados Recientes (Testing)</SectionTitle>            <TicketResults 
+              ref={ticketResultsRef} 
+              userAddress={userAddress} // O un ID genérico si es para todos los resultados de testing
+              autoRefresh={true}
+              refreshInterval={5000} // Refrescar cada 5s
+            />
+          </div>
+        </TestingSection>
+      </TestingGrid>
+      
+      {/* Panel de Debug de SSE */}
+      <TestingSection style={{ marginTop: '30px', gridColumn: '1 / -1' }}>
+        <SectionTitle>📡 Monitor de Eventos del Servidor (SSE)</SectionTitle>
+        <SectionDescription>
+          Este panel muestra los eventos en tiempo real que el servidor envía al cliente. 
+          Es útil para depurar la comunicación de sorteos, apuestas y resultados.
+        </SectionDescription>
+        {/* SSE Debug Panel - DISABLED (migrated to polling) */}
+        <div style={{
+          padding: '20px',
+          background: 'rgba(128, 128, 128, 0.3)',
+          borderRadius: '10px',
+          textAlign: 'center',
+          color: '#999'
+        }}>
+          <h3>📡 SSE Debug Panel</h3>
+          <p>SSE System Disabled</p>
+          <p>✅ Migrated to optimized polling system</p>
         </div>
-        
-        <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(255, 68, 0, 0.1)', borderRadius: '5px' }}>
-          <strong>🎭 Simulación de Jugadores:</strong> Los números reservados se bloquean en tiempo real para todos los usuarios, simulando perfectamente el comportamiento del juego real.
-        </div>
-      </div>
+      </TestingSection>
+
     </Container>
   )
 }
+
+// ...existing code...
+// Actualizar la prop `selectedNumber` en NumberGrid para que acepte `number[] | null`
+// y la prop `multiSelectNumbers` para manejar la selección múltiple visualmente.
+// También añadir `isTestingPanel` para lógica condicional si es necesario.
+
+// En NumberGrid.tsx:
+// selectedNumber?: number | number[] | null; // Permitir array
+// multiSelectNumbers?: number[]; // Para resaltar múltiples
+// isTestingPanel?: boolean;
+
+// Dentro del componente NumberGrid, ajustar la lógica de `isSelected`
+// const isSelected = multiSelectNumbers ? multiSelectNumbers.includes(number) : selectedNumber === number;
+// Y para `onNumberSelect`, si `isTestingPanel` es true y se permite selección múltiple,
+// la lógica de `handleSelectNumber` en `TestingPanelUnified.tsx` ya maneja el array.
+// Si `NumberGrid` se usa en el juego principal, `onNumberSelect` esperará un solo número.
+// Esto requerirá asegurar que `onNumberSelect` en `GameContent.tsx` siga recibiendo un solo número.
+// O, `NumberGrid` podría tener un prop `selectionMode: 'single' | 'multiple'`.
+
+// Para `TicketResults.tsx`:
+// Añadir prop opcional `isTestingPanelContext?: boolean`
+// Si es true, quizás mostrar todos los tickets o filtrar de forma diferente.

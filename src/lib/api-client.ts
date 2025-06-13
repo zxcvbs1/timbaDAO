@@ -30,10 +30,18 @@ export interface ONG {
 
 export interface BetResult {
   success: boolean
-  betId?: string
+  // betId?: string // Previous structure
   transactionHash?: string
   message?: string
   error?: string
+  data?: { // Corrected structure based on API response
+    gameId: string;
+    transactionHash?: string; // Duplicated here for completeness if needed, but primary is top-level
+    blockNumber?: number;
+    contributionAmount?: string;
+    poolContribution?: string;
+    gasUsed?: number;
+  };
 }
 
 export interface DrawResult {

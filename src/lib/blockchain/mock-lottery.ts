@@ -54,9 +54,7 @@ export class MockLotteryContract implements ILotteryContract {
           blockNumber: BigInt(mockBlockNumber),
           playedAt: new Date()
         }
-      });
-
-      // 🔄 ACTUALIZAR TOTALES
+      });      // 🔄 ACTUALIZAR TOTALES
       await this.updateUserTotals(normalizedUserId, betAmount, distribution.ongShare);
       await this.updateONGTotals(selectedOngId, distribution.ongShare);
 
@@ -77,7 +75,6 @@ export class MockLotteryContract implements ILotteryContract {
       throw error;
     }
   }
-
   // 🎲 SORTEO DE NÚMEROS
   async drawNumbers(force: boolean = false, specificNumbers?: number[]): Promise<DrawResult> {
     console.log('🎲 [MOCK] Drawing numbers...', { force, specificNumbers });
@@ -85,57 +82,48 @@ export class MockLotteryContract implements ILotteryContract {
     try {
       const pendingGames = await this.getPendingGames(force);
       
-      if (pendingGames.length < this.config.minPlayersForDraw && !force) {
-        console.log(`⚠️  [MOCK] Not enough players for draw. Need: ${this.config.minPlayersForDraw}, Have: ${pendingGames.length}`);
-        
-        // En desarrollo, permitir sorteo con menos jugadores
-        if (process.env.NODE_ENV === 'development' && pendingGames.length > 0) {
-          console.log('🔧 [MOCK] Development mode: allowing draw with fewer players');
-        } else {
-          throw new Error(
-            `Not enough players. Need ${this.config.minPlayersForDraw}, have ${pendingGames.length}`
-          );
-        }
-      }
+      // ELIMINADO: Ya NO verificamos minPlayersForDraw en absoluto
+      console.log(`🎲 [MOCK] Found ${pendingGames.length} pending games. Proceeding with draw...`);
 
       if (pendingGames.length === 0) {
-        if (force) {
-          // For forced draws, create a mock draw with no winners
-          console.log('🔧 [MOCK] Forced draw with no games - creating empty draw');
-          const winningNumbers = specificNumbers || this.generateWinningNumbers();
-          const drawId = `draw_${Date.now()}`;
-          
-          return {
-            winningNumbers,
-            winners: [],
-            transactionHash: this.generateMockTxHash(),
-            totalPrizePool: '0',
-            drawId
-          };
-        } else {
-          throw new Error('No pending games to draw');
-        }
+        // Crear un sorteo vacío si no hay juegos
+        console.log(`🔧 [MOCK] No pending games - creating empty draw.`);
+        const winningNumbersGenerated = specificNumbers || this.generateWinningNumbers();
+        const drawId = `draw_${Date.now()}`;
+        
+        return {
+          winningNumbers: winningNumbersGenerated,
+          winners: [],
+          transactionHash: this.generateMockTxHash(),
+          totalPrizePool: '0',
+          drawId
+        };
       }
 
       const winningNumbers = specificNumbers || this.generateWinningNumbers();
       console.log('🎯 [MOCK] Winning numbers:', winningNumbers);
 
-      const winners = await this.findWinners(pendingGames, winningNumbers);
-      console.log('👑 [MOCK] Winners found:', winners.length);
+      // findWinners now returns richer objects, including ticketId, numbers, player
+      const winnersFromFind = await this.findWinners(pendingGames, winningNumbers);
+      console.log('👑 [MOCK] Winners found by findWinners:', winnersFromFind.length);
 
       const totalPrizePool = await this.getCurrentPool();
-      await this.distributePrizes(winners, totalPrizePool, winningNumbers);
-      await this.markLosingGames(pendingGames, winners, winningNumbers);
+      // distributePrizes updates prizeAmount on the winner objects in winnersFromFind array
+      await this.distributePrizes(winnersFromFind, totalPrizePool, winningNumbers);
+      await this.markLosingGames(pendingGames, winnersFromFind, winningNumbers);
 
       const drawId = `draw_${Date.now()}`;
 
       return {
         winningNumbers,
-        winners: winners.map(w => ({
+        winners: winnersFromFind.map(w => ({ // Ensure all Winner interface fields are mapped
           userId: w.userId,
           gameId: w.gameId,
-          prizeAmount: w.prizeAmount,
-          matchedNumbers: w.matchedNumbers
+          prizeAmount: w.prizeAmount, // Updated by distributePrizes
+          matchedNumbers: w.matchedNumbers,
+          ticketId: w.ticketId,       // Added from findWinners
+          numbers: w.numbers,       // Added from findWinners
+          player: w.player          // Added from findWinners
         })),
         transactionHash: this.generateMockTxHash(),
         totalPrizePool,
@@ -410,13 +398,15 @@ export class MockLotteryContract implements ILotteryContract {
       
       console.log(`🎯 [MOCK] Game ${game.id}: Selected: ${selectedNumber}, Winning: ${winningNumber}`);
       
-      // 🔥 NUEVO SISTEMA: Solo gana si el número es exactamente igual
       if (selectedNumber === winningNumber) {
         winners.push({
           userId: game.userId,
           gameId: game.id,
-          matchedNumbers: 1, // Siempre 1 en el nuevo sistema
-          prizeAmount: '0' // Se calculará después
+          matchedNumbers: 1, 
+          prizeAmount: '0', // Placeholder, updated by distributePrizes
+          ticketId: game.id, // Added for Winner interface compatibility
+          numbers: [selectedNumber], // Added for Winner interface compatibility
+          player: game.userId // Added for Winner interface compatibility
         });
         console.log(`🏆 [MOCK] WINNER FOUND! Game ${game.id} - Number: ${selectedNumber}`);
       }
@@ -424,39 +414,40 @@ export class MockLotteryContract implements ILotteryContract {
 
     console.log(`👑 [MOCK] Total winners found: ${winners.length}`);
     return winners;
-  }
-  private async distributePrizes(winners: any[], totalPool: string, winningNumbers: number[]) {
+  }  private async distributePrizes(winners: any[], totalPool: string, winningNumbers: number[]) {
     if (winners.length === 0) return;
 
     const prizePerWinner = BigInt(totalPool) / BigInt(winners.length);
 
     for (const winner of winners) {
+      // Get current user stats
+      const currentUser = await prisma.user.findUnique({
+        where: { id: winner.userId }
+      });
+
+      if (!currentUser) continue;
+
+      const newTotalWinnings = (BigInt(currentUser.totalWinnings || '0') + prizePerWinner).toString();
+
+      // Update game session
       await prisma.gameSession.update({
         where: { id: winner.gameId },
         data: {
-          winningNumbers: winningNumbers[0].toString(), // Solo un número en el nuevo sistema
+          winningNumbers: winningNumbers[0].toString(),
           isWinner: true,
           prizeAmount: prizePerWinner.toString(),
           confirmedAt: new Date()
         }
       });
-
-      // Get current user to update totals correctly
-      const currentUser = await prisma.user.findUnique({
+      
+      // Update user stats
+      await prisma.user.update({
         where: { id: winner.userId },
-        select: { totalWinnings: true, totalGamesWon: true }
-      });if (currentUser) {
-        const currentWinningsBigInt = BigInt(Math.floor(parseFloat(currentUser.totalWinnings)));
-        const newTotalWinnings = (currentWinningsBigInt + prizePerWinner).toString();
-        
-        await prisma.user.update({
-          where: { id: winner.userId },
-          data: {
-            totalWinnings: newTotalWinnings,
-            totalGamesWon: currentUser.totalGamesWon + 1
-          }
-        });
-      }
+        data: {
+          totalWinnings: newTotalWinnings,
+          totalGamesWon: currentUser.totalGamesWon + 1
+        }
+      });
 
       winner.prizeAmount = prizePerWinner.toString();
     }

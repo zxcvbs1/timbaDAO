@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styled from 'styled-components'
-import { apiClient, ONG } from '@/lib/api-client'
+import { apiClient } from '@/lib/api-client'
 
 const Container = styled.div`
   min-height: 100vh;
@@ -274,14 +274,14 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
     name: '',
     description: '',
     mission: '',
-    website: '',
-    walletAddress: '',
+    website: '',    walletAddress: '',
     icon: '🏥'
   })
-
+  
   useEffect(() => {
     loadProposals()
     loadUserParticipations()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const loadProposals = async () => {
     try {
@@ -301,7 +301,7 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
               userVote: userVote || null,
               hasUserVoted: !!userVote
             }
-          } catch (err) {
+          } catch {
             // Si hay error verificando el voto, asumir que no votó
             return {
               ...proposal,
@@ -311,9 +311,8 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
           }
         })
       )
-      
-      setProposals(proposalsWithUserVote)
-    } catch (err) {
+        setProposals(proposalsWithUserVote)
+    } catch {
       setError('Error al cargar propuestas')
     } finally {
       setLoading(false)
@@ -425,11 +424,10 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
       if (result.success) {
         setSuccess('🎉 Propuesta creada exitosamente! Los usuarios podrán votar durante los próximos 7 días.')
         setProposalForm({ name: '', description: '', mission: '', website: '', walletAddress: '', icon: '🏥' })
-        await loadProposals()
-      } else {
+        await loadProposals()      } else {
         setError(result.error || 'Error al crear la propuesta')
       }
-    } catch (err) {
+    } catch {
       setError('Error de conexión al crear la propuesta')
     } finally {
       setLoading(false)
@@ -586,9 +584,8 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
                     
                     <div style={{ color: '#fff', marginBottom: '10px' }}>
                       {proposal.description}
-                    </div>
-                      <div style={{ color: '#00ffff', fontStyle: 'italic', marginBottom: '15px' }}>
-                      "{proposal.mission}"
+                    </div>                      <div style={{ color: '#00ffff', fontStyle: 'italic', marginBottom: '15px' }}>
+                      &quot;{proposal.mission}&quot;
                     </div>
 
                     {/* 💰 INFORMACIÓN ADICIONAL DE LA ONG */}
@@ -623,9 +620,8 @@ export default function GovernancePanel({ onBack, userAddress = "0x1234567890abc
                               color: '#00ffff', 
                               textDecoration: 'none',
                               marginLeft: '8px'
-                            }}
-                            onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-                            onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                            }}                            onMouseOver={(e) => (e.target as HTMLElement).style.textDecoration = 'underline'}
+                            onMouseOut={(e) => (e.target as HTMLElement).style.textDecoration = 'none'}
                           >
                             {proposal.website}
                           </a>

@@ -1,5 +1,5 @@
 'use client'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import styled from 'styled-components'
 import { ONG } from '@/lib/api-client'
 
@@ -287,20 +287,20 @@ export default function Ticket({
 }: TicketProps) {
   const progressPercentage = (roundProgress.takenSlots / roundProgress.totalSlots) * 100
   const canStartDraw = roundProgress.takenSlots >= roundProgress.minimumRequired
-  
-  const formatAmount = (amount: string) => {
+    const formatAmount = (amount: string) => {
     // Convertir de wei a ETH/MNT para display
     const eth = parseFloat(amount) / 1e18
     return eth.toFixed(4)
   }
+  
   const getStatusText = () => {
     switch (status) {
       case 'waiting':
-        return '⏳ Esperando más jugadores'
+        return '🎯 Listo para apostar'
       case 'active':
-        return '🎲 Listo para sorteo'
+        return '🎲 Procesando apuesta...'
       case 'pending':
-        return '🎯 Esperando resultados...'
+        return '⏳ Esperando resultados del sorteo...'
       case 'completed':
         return '✅ Sorteo completado'
       default:

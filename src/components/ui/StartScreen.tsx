@@ -158,13 +158,12 @@ export default function StartScreen({
   }
 
   return (
-    <Container>
-      <MainTitle
+    <Container>      <MainTitle
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1 }}
       >
-        🎰 SUPER LOTERÍA 🎰
+        🎰 TIMBADAO 🎰
       </MainTitle>
 
       <Subtitle
@@ -313,7 +312,7 @@ export default function StartScreen({
           <FeatureCard whileHover={{ scale: 1.05 }}>
             <div className="icon">🎵</div>
             <div className="title">Experiencia Inmersiva</div>
-            <div className="description">Sonidos de casino y efectos neón espectaculares</div>
+            <div className="description">Sonidos de casino y efectos visuales espectaculares</div>
           </FeatureCard>
         </Features>
       )}

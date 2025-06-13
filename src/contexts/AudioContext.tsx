@@ -3,7 +3,7 @@ import { createContext, useContext, useRef, ReactNode } from 'react'
 import AudioManager, { AudioManagerRef } from '@/components/ui/AudioManager'
 
 interface AudioContextType {
-  audioRef: React.RefObject<AudioManagerRef>
+  audioRef: React.RefObject<AudioManagerRef | null>
 }
 
 const AudioContext = createContext<AudioContextType | null>(null)

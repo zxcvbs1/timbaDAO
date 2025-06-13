@@ -85,6 +85,15 @@ export async function validateNumberAvailability(
   number: number, 
   excludeUserId?: string
 ): Promise<ValidationResult> {
+  // 🔧 TESTING MODE: Permitir números duplicados en desarrollo para testing
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔧 [VALIDATION] Development mode: Allowing duplicate numbers for testing');
+    return {
+      isValid: true,
+      message: 'Número disponible (modo desarrollo - duplicados permitidos)'
+    };
+  }
+
   try {
     // Importar prisma dentro de la función para evitar dependencias circulares
     const { prisma } = await import('./prisma');

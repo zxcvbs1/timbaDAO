@@ -1,13 +1,34 @@
-# 🎮 GUÍA COMPLETA DE TESTING - Super Lotería Neón
+# 🎮 GUÍA COMPLETA DE TESTING - TimbaDAO
 
-## 🚀 **PROCEDIMIENTO PASO A PASO**
+## 🚀 **MENÚ DE TESTING EN DESARROLLO**
 
-### **Preparación**
-1. Asegúrate de que el servidor esté corriendo:
+### **Iniciar Modo Desarrollo**
+1. Ejecutar el servidor con todas las herramientas de testing:
    ```bash
    npm run dev
    ```
-   ✅ **Verificar**: http://localhost:3000 debe estar disponible
+   ✅ **Verificar**: http://localhost:3000 debe mostrar el menú de testing
+
+### **🔧 Panel de Administración (Solo en Development)**
+
+Cuando `NODE_ENV=development`, el sistema incluye herramientas avanzadas de testing:
+
+#### **🎯 Modos de Prueba Disponibles**
+- **Modo Normal**: Sorteos completamente aleatorios
+- **Modo Victoria**: Fuerza que el usuario siempre gane (número ganador = número seleccionado)
+- **Modo Derrota**: Fuerza que el usuario siempre pierda (número ganador ≠ número seleccionado)
+- **Números Específicos**: Define manualmente el número ganador
+
+#### **🔄 Herramientas de Debug**
+- **Estado de apuestas** en tiempo real
+- **Refresh automático** de resultados después de cada juego
+- **Logs detallados** de todas las transacciones
+- **Panel de testing unificado** con controles administrativos
+
+#### **⚡ Ejecución Manual de Sorteos**
+- **Botón "Ejecutar Sorteo"** - Procesa todas las apuestas pendientes inmediatamente
+- **Números específicos** - Define el resultado del sorteo para testing
+- **Verificación instantánea** - Ve los resultados sin esperar
 
 ### **Paso 1: Conectar y Configurar**
 1. **Abrir**: http://localhost:3000

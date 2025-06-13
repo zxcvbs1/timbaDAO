@@ -24,19 +24,17 @@ export const GAME_CONFIG = {
   totalSlots: 100,              // 100 números únicos disponibles por ronda
   minMatchesToWin: 1,           // Ganar con número exacto únicamente
   defaultBetAmount: '1000000000000000000', // 1 MNT en wei
-  
-  // 🎯 NUEVAS REGLAS DE PARTICIPACIÓN
-  minimumParticipants: 10,      // Mínimo 10 jugadores para hacer sorteo
+    // 🎯 NUEVAS REGLAS DE PARTICIPACIÓN
+  minimumParticipants: 0,       // Sin mínimo de jugadores para hacer sorteo
   optimalParticipants: 50,      // Óptimo: 50% de slots ocupados
   maximumWaitTime: 24 * 60 * 60 * 1000, // 24 horas máximo de espera
   
   // 💰 DISTRIBUCIÓN DE FONDOS (Actualizada para mayor prize pool)
   ongPercentage: 15,            // 15% para ONG
   ownerPercentage: 5,           // 5% para owner
-  poolPercentage: 80,           // 80% para el ganador único  
-  // 🕐 TIMING
+  poolPercentage: 80,           // 80% para el ganador único  // 🕐 TIMING
   drawInterval: 86400,          // 24 horas en segundos
-  minPlayersForDraw: process.env.NODE_ENV === 'development' ? 3 : 10, // 3 en dev, 10 en prod
+  minPlayersForDraw: 0, // Sin mínimo de jugadores - SIEMPRE PERMITIR SORTEO
   
   // 🎯 PARTICIPACIONES MÍNIMAS (CLAVE DEL SISTEMA)
   participations: {

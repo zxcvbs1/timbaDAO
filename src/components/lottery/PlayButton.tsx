@@ -1,7 +1,6 @@
 'use client'
 import { motion } from 'framer-motion'
 import styled from 'styled-components'
-import { useState } from 'react'
 
 const StyledButton = styled(motion.button)`
   background: linear-gradient(45deg, #ff0080, #ff4000);
@@ -39,8 +38,6 @@ interface Props {
 }
 
 export default function PlayButton({ onClick, disabled = false, isLoading = false }: Props) {
-  const [showAudioNotification, setShowAudioNotification] = useState(false)
-
   const handleClick = () => {
     console.log('PlayButton clicked!') // ✅ Debug
     onClick()

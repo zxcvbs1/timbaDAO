@@ -1,5 +1,4 @@
 'use client'
-import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styled from 'styled-components'
 
@@ -182,7 +181,6 @@ export default function NumberGrid({
   takenNumbers = [],
   roundProgress
 }: NumberGridProps) {
-  const [highlightedNumber, setHighlightedNumber] = useState<number | null>(null)
 
   // Generar números del 0 al 99
   const numbers = Array.from({ length: 100 }, (_, i) => i)
@@ -244,11 +242,8 @@ export default function NumberGrid({
                 key={number}
                 isSelected={isSelected}
                 isDisabled={isDisabled}
-                isTaken={isTaken}
-                onClick={() => handleNumberClick(number)}
+                isTaken={isTaken}                onClick={() => handleNumberClick(number)}
                 disabled={isDisabled || isTaken}
-                onMouseEnter={() => setHighlightedNumber(number)}
-                onMouseLeave={() => setHighlightedNumber(null)}
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0 }}

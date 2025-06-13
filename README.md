@@ -1,220 +1,251 @@
-# 🎰 Super Lotería Neón - Mantle Network
+# 🎰 TimbaDAO - Social Impact Lottery on Mantle Network
 
-A decentralized lottery application built on the Mantle blockchain with social impact at its core. Players bet on 4-digit numbers, and a percentage of each bet goes to approved NGOs (ONGs) that users can vote on.
+**Where Every Bet Creates Real-World Impact**
 
-## ✨ Features
+TimbaDAO revolutionizes the lottery experience by combining thrilling gameplay with meaningful social impact. Every time you play, you're not just chasing prizes – you're directly supporting verified NGOs and creating positive change in the world.
 
-### 🎮 Core Gameplay
-- **4-digit lottery system** (0-9 digits per position)
-- **Social impact betting** - support approved NGOs with every bet
-- **Minimum 3 matching digits to win**
-- **1 MNT minimum bet amount**
-- **Immediate feedback** with neon-styled UI
+## 🌟 The Vision
 
-### 🏛️ Governance System
-- **Community-driven ONG approval** via voting
-- **Minimum participation requirements** (3 games to vote, 10 to propose)
-- **Weighted voting system** based on participation
-- **7-day voting periods** with automatic finalization
+In a world where entertainment often lacks purpose, TimbaDAO bridges the gap between fun and philanthropy. Our decentralized lottery platform transforms casual gaming into a force for good, where every bet becomes a donation to causes that matter.
 
-### 🔧 Development Features
-- **Mock blockchain contracts** for development
-- **Force draw functionality** for testing
-- **Configurable minimum players** (1 in dev, 3 in production)
-- **Admin panel** for development testing
-- **Comprehensive logging** and error handling
+### 💡 How It Works - Play, Win, Impact
 
-## 🚀 Quick Start
+1. **🎯 Choose Your Cause**: Select from a curated list of verified NGOs working on issues you care about
+2. **🎲 Pick Your Number**: Choose a unique number from 0-99 for your lottery ticket  
+3. **🤝 Make Your Impact**: A portion of every bet automatically goes to your chosen NGO
+4. **🏆 Win Prizes**: Compete for prizes while knowing your participation creates real change
+5. **🌍 Track Your Impact**: See exactly how your gaming contributes to social causes
 
-### Prerequisites
-- Node.js 18+
-- PostgreSQL database (configured via Neon)
-- Mantle Network wallet for testing
+## 🚀 Key Features
 
-### Installation
+- **🎰 Single Number Lottery (0-99)** - Simple, fair, and transparent
+- **🏥 Verified NGO Support** - Directly fund meaningful causes with every bet
+- **⚡ Real-time Updates** - Live polling system for instant results
+- **🔐 Secure Authentication** - Privy wallet integration for seamless access
+- **⛓️ Mantle Network** - Low fees, high performance blockchain
+- **✨ Neon Gaming Interface** - Immersive casino-style experience
+
+## 🎮 How to Play & Create Impact
+
+### Your Journey from Player to Changemaker
+
+**🔗 Step 1: Connect Your Wallet**
+- Use any Mantle-compatible wallet to join the platform
+- Secure authentication via Privy ensures your assets are safe
+
+**🏥 Step 2: Choose Your Impact**
+- Browse our verified NGO partners working on diverse causes:
+  - 🌱 Environmental conservation
+  - 🎓 Education access
+  - 🏥 Healthcare initiatives  
+  - 🍲 Hunger relief
+  - 💧 Clean water projects
+- Each NGO is thoroughly vetted for transparency and effectiveness
+
+**🎯 Step 3: Select Your Lucky Number**
+- Pick any number from 0-99 (each number is unique per draw)
+- Your number choice is your ticket to potential prizes
+
+**💰 Step 4: Place Your Bet**
+- Minimum bet: 1 MNT
+- **15% goes directly to your chosen NGO**
+- **80% forms the prize pool**
+- **5% supports platform operations**
+
+**🎉 Step 5: Win & Celebrate Impact**
+- Wait for the draw results (automatic execution)
+- Winners are determined fairly and transparently
+- Whether you win or not, you've already created positive impact!
+
+## 🛠️ Installation & Development
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd lottery-neon-app
+# Clone repository
+git clone [repository-url]
+cd timbaDAO
 
 # Install dependencies
 npm install
 
-# Set up environment variables
+# Configure environment variables
 cp .env.example .env
-# Edit .env with your database and Privy app ID
+# Edit .env with your configurations
 
-# Run database migrations
-npm run db:push
-
-# Seed the database with initial data
-npm run db:seed
+# Initialize database
+npx prisma generate
+npx prisma db push
 
 # Start development server
 npm run dev
 ```
 
-## 🎯 Development Configuration
+## 🧪 Development Testing Menu
 
-### Environment Variables
-```env
-DATABASE_URL="your-neon-postgres-url"
-NEXT_PUBLIC_PRIVY_APP_ID="your-privy-app-id"
-NODE_ENV="development"  # Enables admin features
-```
+When you run `npm run dev`, you'll access a comprehensive testing suite:
 
-### Development Features
+### 🎮 Admin Panel Features
+- **Execute draws** manually for testing
+- **Specific numbers** for controlled testing scenarios
+- **System status** verification
+- **Real-time logs** and debugging
 
-#### Admin Panel
-- **Force Draw Button** - Execute lottery draws immediately for testing
-- **Bypasses player requirements** - Test with any number of players
-- **Mock prize distribution** - Simulate real prize calculations
-- **Development-only access** - Automatically hidden in production
+### 🎯 Testing Modes
+- **Normal Mode**: Completely random draws
+- **Win Mode**: Forces user victory (selected number = winning number)
+- **Lose Mode**: Forces user loss (selected number ≠ winning number)  
+- **Specific Numbers**: Manually define the winning number
 
-#### Mock Contracts
-- **Complete blockchain simulation** without real transactions
-- **Instant confirmations** for faster development
-- **Realistic gas calculations** and transaction hashes
-- **Full prize distribution logic**
+### 🔄 Debug Tools
+- **Real-time bet status** monitoring
+- **Automatic results refresh** after each game
+- **Detailed transaction logs**
+- **Multi-user simulation** capabilities
 
-### Game Configuration
-```typescript
-// src/lib/blockchain/config.ts
-export const GAME_CONFIG = {
-  numbersCount: 4,                    // 4 digits per play
-  numbersRange: 9,                    // 0-9 digits
-  minMatchesToWin: 3,                 // Minimum matches to win
-  defaultBetAmount: '1000000000000000000', // 1 MNT in wei
-  minPlayersForDraw: process.env.NODE_ENV === 'development' ? 1 : 3,
-  
-  // Fund distribution
-  ongPercentage: 15,     // 15% to selected ONG
-  ownerPercentage: 5,    // 5% to platform
-  poolPercentage: 80,    // 80% to prize pool
-}
-```
+## 🏗️ Build & Production
 
-## 🏗️ Architecture
-
-### Frontend (Next.js 15)
-- **React 18** with TypeScript
-- **Tailwind CSS** for styling
-- **Framer Motion** for animations
-- **Styled Components** for neon effects
-- **Privy** for wallet authentication
-
-### Backend (API Routes)
-- **Next.js API routes** for all endpoints
-- **Prisma ORM** with PostgreSQL
-- **Mock blockchain layer** for development
-- **RESTful API design**
-
-### Database (PostgreSQL via Neon)
-- **User management** with wallet integration
-- **Game session tracking**
-- **ONG management and voting**
-- **Transaction history**
-- **Governance proposals**
-
-## 🎮 How to Play
-
-1. **Connect Wallet** - Use any Mantle-compatible wallet
-2. **Select an ONG** - Choose which organization to support
-3. **Pick 4 digits** - Each digit can be 0-9
-4. **Place bet** - Minimum 1 MNT
-5. **Wait for draw** - Automatic or manual (dev mode)
-6. **Check results** - Win with 3+ matching digits!
-
-## 🏛️ Governance
-
-### Proposing ONGs
-- Minimum 10 game participations required
-- Submit ONG details and verification
-- Community voting determines approval
-
-### Voting on Proposals
-- Minimum 3 game participations to vote
-- Vote weight based on participation level
-- 7-day voting period
-- 60% approval threshold required
-
-## 🔧 Development Workflow
-
-### Testing Lottery Functionality
-1. **Start development server**: `npm run dev`
-2. **Connect wallet** in the application
-3. **Place a bet** with any 4 digits
-4. **Use admin panel** to force a draw
-5. **Check results** and prize distribution
-
-### API Endpoints
-- `POST /api/users/get-or-create` - User authentication
-- `POST /api/game/place-bet` - Place lottery bet
-- `POST /api/game/draw-numbers` - Execute draw
-- `POST /api/admin/execute-draw` - Force draw (dev only)
-- `GET /api/ongs/approved` - Get approved ONGs
-- `POST /api/governance/propose-ong` - Propose new ONG
-- `POST /api/governance/vote` - Vote on proposal
-
-### Database Operations
 ```bash
-# Push schema changes
-npm run db:push
+# Build for production
+npm run build
 
-# Reset database
-npm run db:reset
-
-# Seed with test data
-npm run db:seed
-
-# Open Prisma Studio
-npm run db:studio
+# Run in production
+npm start
 ```
+## 🔧 Administration
 
-## 🚀 Deployment
+For system administrators, check the [Administration Guide](./ADMIN_GUIDE.md) which includes:
 
-### Production Configuration
-1. **Set NODE_ENV=production** to disable admin features
-2. **Configure real blockchain endpoints** if available
-3. **Update minimum players** to production values
-4. **Set up proper monitoring** and error handling
+- 🎯 **Production draw execution**
+- 🔐 **Security configuration**
+- 📡 **Administration endpoints**
+- 🛠️ **Required environment variables**
 
-### Vercel Deployment
+### Quick Command - Execute Draw
+
 ```bash
-# Deploy to Vercel
-vercel --prod
-
-# Set environment variables in Vercel dashboard
-# - DATABASE_URL
-# - NEXT_PUBLIC_PRIVY_APP_ID
+curl -X POST http://127.0.0.1:3000/api/admin/execute-production-draw \
+  -H "Content-Type: application/json" \
+  -d '{"adminKey": "TimbaDAO2025_SuperSecretAdmin_Key_Change_In_Production"}'
 ```
 
-## 🤝 Contributing
+### 🔑 Required Environment Variables
 
-1. Fork the repository
-2. Create a feature branch
-3. Test thoroughly with admin panel
-4. Submit a pull request
+```bash
+# ADMINISTRATION (REQUIRED)
+ADMIN_KEY=TimbaDAO2025_SuperSecretAdmin_Key_Change_In_Production
 
-## 📝 License
+# DATABASE (REQUIRED)
+DATABASE_URL="postgresql://user:password@localhost:5432/timbadao"
 
-[Add your license here]
+# BLOCKCHAIN - Mantle Network
+NEXT_PUBLIC_CHAIN_ID=5000
+NEXT_PUBLIC_RPC_URL="https://rpc.mantle.xyz"
 
-## 🆘 Support
+# AUTHENTICATION - Privy
+NEXT_PUBLIC_PRIVY_APP_ID="your_privy_app_id_here"
+PRIVY_APP_SECRET="your_privy_app_secret_here"
 
-For issues or questions:
-- Check the console logs for detailed error messages
-- Use the development admin panel for testing
-- Review the Prisma Studio for database state
-- Check Neon dashboard for database connectivity
+# ENVIRONMENT
+NODE_ENV=development
+```
+
+## 📁 Project Structure
+
+```
+timbaDAO/
+├── src/
+│   ├── components/         # React components
+│   ├── pages/api/         # API Routes
+│   ├── lib/               # Utilities and configuration
+│   └── contexts/          # React contexts
+├── prisma/                # Database schema
+├── public/                # Static files
+├── ADMIN_GUIDE.md         # Administration guide
+└── README.md              # This file
+```
+
+## 🌍 Social Impact Through Gaming
+
+### Why NGOs Love TimbaDAO
+
+**🔄 Sustainable Funding**: Unlike traditional donations, TimbaDAO creates a continuous funding stream as players engage with the platform daily.
+
+**🎯 Targeted Support**: Players consciously choose which causes to support, creating engaged communities around specific NGO missions.
+
+**📊 Transparent Impact**: All transactions are blockchain-verified, ensuring NGOs receive their designated funds transparently.
+
+**🚀 Scalable Growth**: As the gaming community grows, so does the collective impact on supported causes.
+
+### The Multiplier Effect
+
+Every 1 MNT bet creates multiple layers of value:
+- **💰 Direct Funding**: 0.15 MNT goes immediately to the chosen NGO
+- **🏆 Prize Incentive**: 0.80 MNT motivates continued participation
+- **🔄 Platform Growth**: 0.05 MNT ensures sustainability and expansion
+- **📈 Community Building**: Creates networks of supporters around shared causes
+
+## 🎮 User Flow: From Entertainment to Impact
+
+1. **🔗 Connect Wallet** - Secure Privy authentication
+2. **🏥 Select NGO** - Choose your cause to support
+3. **🎯 Pick Number** - Select unique number (0-99)
+4. **💰 Place Bet** - Make your impact with minimum 1 MNT
+5. **⏱️ Await Draw** - Automatic execution system
+6. **📊 View Results** - Real-time polling updates
+7. **🎉 Celebrate Impact** - See your contribution in action
+
+## 🔐 Security & Trust
+
+- **🛡️ Robust Authentication** via Privy wallet integration
+- **🔑 Configurable Admin Keys** for production security
+- **✅ Frontend & Backend Validation** at every step
+- **📋 Complete Audit Logs** for full transparency
+- **🔍 NGO Verification Process** ensures legitimate partnerships
+
+## 🌐 Technology Stack
+
+- **Frontend**: Next.js 15, React, TypeScript
+- **Backend**: Next.js API Routes  
+- **Database**: PostgreSQL with Prisma ORM
+- **Blockchain**: Mantle Network
+- **Authentication**: Privy wallet integration
+- **Styling**: CSS-in-JS with neon effects
+
+## 📝 Project Status
+
+✅ **Complete & Functional MVP**
+- End-to-end lottery system operational
+- Real-time polling implementation
+- Fixed win/lose detection logic
+- Production-optimized build
+- Comprehensive documentation
+- NGO funding mechanism active
+
+## 🚨 Important Notes
+
+1. **Change `ADMIN_KEY`** in production environments
+2. **Configure all environment** variables properly
+3. **Use HTTPS** in production deployments
+4. **Verify database** configuration settings
+
+## 🤝 Contributing to Social Impact
+
+TimbaDAO is more than a lottery platform – it's a movement toward purposeful gaming. Join us in proving that entertainment and social good can coexist beautifully.
+
+### For Developers
+- Contribute to the open-source codebase
+- Help optimize the platform for greater impact
+- Build features that enhance the NGO experience
+
+### For NGOs
+- Apply to become a verified partner
+- Access sustainable funding streams
+- Connect with engaged communities
+
+### For Players
+- Choose causes you care about
+- Play responsibly while creating impact
+- Share the platform with friends to multiply the effect
 
 ---
 
-**Built with ❤️ for social impact on Mantle Network**
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Built with ❤️ to prove that technology can be a force for social good*
